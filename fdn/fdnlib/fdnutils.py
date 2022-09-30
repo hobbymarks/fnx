@@ -33,9 +33,9 @@ def _replace_char(s: str) -> str:
         """
         ruw_list = ugPD["RemainUnchangedWordList"][:]
         ruw_list.extend([*ugPD["TerminologyDictionary"]])
-        re_str = "|".join([re.escape(ruw) for ruw in ruw_list])
-        w_list = re.split(f"({re_str})", _s)
-        m_list = []
+        re_str = "|".join([re.escape(ruw) for ruw in ruw_list])#
+        w_list = re.split(f"({re_str})", _s)#split input by Terminology Words
+        m_list = []#mask store true if word in Terminology else false
         for elm in w_list:
             if elm in ruw_list:
                 m_list.append(True)
