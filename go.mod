@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/jedib0t/go-pretty/v6 v6.4.4
+	github.com/schollz/progressbar/v3 v3.13.0
 	github.com/spf13/cobra v1.6.1
 	gorm.io/gorm v1.24.3
 )
@@ -16,6 +17,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20220927061507-ef77025ab5aa // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	golang.org/x/sys v0.4.0 // indirect
@@ -30,6 +32,7 @@ require (
 	github.com/glebarez/sqlite v1.6.0
 	github.com/hobbymarks/go-difflib v0.0.0-20181226105442-5d4384ee4fb2
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/mattn/go-runewidth v0.0.14
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/pflag v1.0.5 // indirect

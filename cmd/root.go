@@ -22,7 +22,9 @@ import (
 
 	//TODO:should better
 	"github.com/hobbymarks/go-difflib/difflib"
+	"github.com/k0kubun/go-ansi"
 	"github.com/mattn/go-runewidth"
+	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -92,8 +94,30 @@ var rootCmd = &cobra.Command{
 			paths,
 			func(i, j int) bool { return paths[i] > paths[j] },
 		)
+
+		bar := progressbar.NewOptions(
+			len(paths),
+			progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+			// progressbar.OptionEnableColorCodes(true),
+			// progressbar.OptionShowBytes(true),
+			progressbar.OptionSetWidth(20),
+			// progressbar.OptionSetDescription(
+			// 	"[cyan][1/3][reset] Writing moshable file...",
+			// ),
+			// progressbar.OptionSetTheme(progressbar.Theme{
+			// 	Saucer:        "[green]=[reset]",
+			// 	SaucerHead:    "[green]>[reset]",
+			// 	SaucerPadding: " ",
+			// 	BarStart:      "[",
+			// 	BarEnd:        "]",
+			// }),
+			progressbar.OptionClearOnFinish(),
+			progressbar.OptionSetPredictTime(true),
+		)
+
 		log.Info("loopthrough process path...")
 		for _, path := range paths {
+			bar.Add(1)
 			log.Infof("process...:%s", path)
 			path = filepath.Clean(path)
 			//remove tailing slash if exist
