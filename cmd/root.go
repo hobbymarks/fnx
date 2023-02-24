@@ -71,7 +71,7 @@ var rootCmd = &cobra.Command{
 			log.SetLevel(log.WarnLevel)
 		}
 		log.Info("rootCmd executing ...")
-		PrintTipFlag := false
+		// PrintTipFlag := false
 		curHashEncryPre := map[string]string{}
 		if reverse {
 			var rds []db.Record
@@ -152,22 +152,22 @@ var rootCmd = &cobra.Command{
 					case Y, Yes:
 						CheckDoFDN(path, toPath, reverse, overwrite)
 					case N, No:
-						OutputResult(path, toPath, false, fullpath)
+						defer OutputResult(path, toPath, false, fullpath)
 						continue
 					case Q, Quit:
 						os.Exit(0)
 					}
 				} else {
-					PrintTipFlag = true
-					OutputResult(path, toPath, false, fullpath)
+					// PrintTipFlag = true
+					defer OutputResult(path, toPath, false, fullpath)
 				}
 			}
 			log.Infof("process!:%s", path)
 		}
 		log.Info("loopthrough process path!")
-		if PrintTipFlag {
-			noEffectTip()
-		}
+		// if PrintTipFlag {
+		// 	noEffectTip()
+		// }
 	},
 }
 
