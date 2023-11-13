@@ -1,6 +1,7 @@
-dist/
-bin/
-prof/
-vendor/
+/logs
+
+/target
+
+/*_outs
+
 .DS_Store
-fdn
