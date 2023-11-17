@@ -1,4 +1,5 @@
 {
+  "editor.autoClosingBrackets": "always",
   "editor.bracketPairColorization.enabled": true,
   "editor.fontFamily": "Intel One Mono",
   "editor.fontLigatures": true,
