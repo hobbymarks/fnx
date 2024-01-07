@@ -2,6 +2,10 @@
 
 /target
 
+/target_ra
+
 /*_outs
+
+lcov.info
 
 .DS_Store
