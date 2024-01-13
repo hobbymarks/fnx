@@ -18,7 +18,6 @@
     "cargo",
     "cranky",
     "--quiet",
-    "--target-dir=target_ra",
     "--workspace",
     "--message-format=json",
     "--all-targets",
@@ -28,7 +27,6 @@
   "rust-analyzer.check.overrideCommand": [
     "cargo",
     "cranky",
-    "--target-dir=target_ra",
     "--workspace",
     "--message-format=json",
     "--all-targets",
