@@ -1,11 +1,11 @@
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand};
 use std::path::Path;
 
-use fdn::{dir_basename, directories, fdn_f, is_hidden, regular_files, utils::s_compare};
+use fdn::{dir_base, directories, fdn_f, is_hidden, regular_files, utils::s_compare};
 
 #[derive(Debug, Parser)]
-#[command(author,version,about="File and Directory Names",long_about=None)]
+#[command(author,about="File and Directory Names",long_about=None)]
 struct Args {
     ///file path
     #[arg(short = 'f', long, default_value = ".")]
@@ -30,6 +30,10 @@ struct Args {
     ///align origin and edited
     #[arg(short = 'a', long, default_value = "false")]
     align: bool,
+
+    ///print version
+    #[arg(short = 'V', long)]
+    version: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -56,6 +60,16 @@ enum Commands {
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    if args.version {
+        println!(
+            "fdn\nVersion {}\nBuild {}",
+            env!("CARGO_PKG_VERSION"),
+            env!("GIT_HASH")
+        );
+
+        return Ok(());
+    }
+
     let input_path = Path::new(&args.file_path);
     let max_depth = args.max_depth;
     let filetype = args.filetype;
@@ -69,7 +83,7 @@ fn main() -> Result<()> {
                 if !not_ignore_hidden && is_hidden(&f) {
                     continue;
                 }
-                if let Some(d_b) = dir_basename(&f) {
+                if let Some(d_b) = dir_base(&f) {
                     let rlt = fdn_f(&d_b, args.in_place).unwrap();
 
                     let (o_r, e_r) = match align_flag {
@@ -88,13 +102,13 @@ fn main() -> Result<()> {
         } else if filetype == "d" {
             let files = directories(input_path, max_depth);
             for f in files.unwrap() {
-                println!("iD:{:?}", dir_basename(&f));
+                println!("iD:{:?}", dir_base(&f));
             }
         }
     } else if input_path.is_file() {
-        println!("File:{:?}", dir_basename(input_path));
+        println!("File:{:?}", dir_base(input_path));
     } else {
-        println!("Other:{:?}", dir_basename(input_path));
+        println!("Other:{:?}", dir_base(input_path));
     }
 
     Ok(())
