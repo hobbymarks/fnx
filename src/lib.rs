@@ -1,25 +1,79 @@
-use anyhow::{anyhow, Result};
-use directories::UserDirs;
+use anyhow::Result;
+use clap::{Parser, Subcommand};
 use regex::Regex;
-use rusqlite::{params, Connection};
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
 };
+use utils::{
+    db::{retrieve_records, retrieve_sep_word, retrieve_separators},
+    decrypted, encrypted, hashed_name, insert_record, open_db, s_compare,
+};
 use walkdir::WalkDir;
 
 pub mod utils;
 
-const DEFAULT_DB_NAME: &str = "fdn.db";
-const SEP_WORD: &str = "_";
-const TOBE_SEP_S: [&str; 24] = [
-    "：", ":", "，", ",", "！", "!", "？", "?", "（", "(", ")", "【", "[", "】", "]", "~", "》",
-    "《", "▯", "“", "”", "\"", " ", "-",
-];
+#[derive(Debug, Parser)]
+#[command(author,about="File and Directory Names",long_about=None)]
+pub struct Args {
+    ///file path
+    #[arg(short = 'f', long, default_value = ".")]
+    pub file_path: String,
 
-#[derive(Debug)]
+    ///in place
+    #[arg(short = 'i', long, default_value = "false")]
+    in_place: bool,
+
+    ///max depth
+    #[arg(short = 'd', long, default_value = "1")]
+    pub max_depth: usize,
+
+    ///file type
+    #[arg(short = 't', long, default_value = "f")]
+    pub filetype: String,
+
+    ///ignore hidden file
+    #[arg(short = 'I', long, default_value = "false")]
+    not_ignore_hidden: bool,
+
+    ///reverse change
+    #[arg(short = 'r', long, default_value = "false")]
+    pub reverse: bool,
+
+    ///align origin and edited
+    #[arg(short = 'a', long, default_value = "false")]
+    align: bool,
+
+    ///print version
+    #[arg(short = 'V', long)]
+    pub version: bool,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    ///Config pattern
+    Config {
+        ///List all configurations
+        #[arg(short = 'l', long, default_value = "false")]
+        list: bool,
+
+        ///Config Separators,Terms ...
+        #[arg(short = 'c', long)]
+        config: String,
+
+        ///Delete configurations
+        #[arg(short = 'd', long)]
+        delete: String,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub struct DirBase {
     pub dir: String,
     pub base: String,
@@ -46,19 +100,25 @@ pub struct ToSepWord {
 
 pub struct Record {
     id: i32,
-    encrypted_previous_name: String,
     hashed_current_name: String,
+    encrypted_pre_name: String,
     count: i32,
 }
 
 impl Record {
-    pub fn new(self, origin: String, target: String) -> Self {
+    pub fn new(origin: &str, target: &str) -> Self {
+        let hashed = hashed_name(target);
+        let encrypted = encrypted(origin, target).unwrap();
         Self {
             id: 0,
-            encrypted_previous_name: origin,
-            hashed_current_name: target,
+            hashed_current_name: hashed,
+            encrypted_pre_name: encrypted,
             count: 0,
         }
+    }
+
+    pub fn pre_name(self, current: &str) -> Result<String> {
+        decrypted(&self.encrypted_pre_name, current)
     }
 }
 
@@ -90,6 +150,15 @@ pub fn directories(directory: &Path, depth: usize) -> Result<Vec<PathBuf>> {
             paths.push(entry.into_path());
         }
     }
+
+    paths.sort_by(|a, b| {
+        let a_str = a.as_os_str();
+        let b_str = b.as_os_str();
+        match a_str.cmp(b_str) {
+            Ordering::Equal => a_str.len().cmp(&b_str.len()),
+            other => other.reverse(),
+        }
+    });
 
     Ok(paths)
 }
@@ -136,231 +205,6 @@ pub fn is_hidden(path: &Path) -> bool {
     }
 }
 
-//////////separators
-//Create separators table
-pub fn create_separators(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS separators (
-                    id    INTEGER PRIMARY KEY,
-                    value TEXT NOT NULL
-                )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-//Create from separators
-pub fn insert_separator(conn: &Connection, sep: &str) -> Result<()> {
-    conn.execute("INSERT INTO separators (value) VALUES (?1)", params![sep])?;
-    Ok(())
-}
-
-//Retrieve from separators
-pub fn retrieve_separators(conn: &Connection) -> Result<Vec<Separator>> {
-    let mut stmt = conn.prepare("SELECT id,value FROM separators")?;
-    let rows = stmt.query_map(params![], |row| Ok((row.get(0)?, row.get(1)?)))?;
-
-    let mut results = Vec::new();
-    for row_rlt in rows {
-        let (id, value) = row_rlt?;
-        results.push(Separator { id, value });
-    }
-
-    Ok(results)
-}
-
-//Update from separators
-pub fn update_separator(conn: &Connection, id: i32, new_value: &str) -> Result<()> {
-    conn.execute(
-        "UPDATE separators SET value = ?1 WHERE id = ?2",
-        params![new_value, id],
-    )?;
-
-    Ok(())
-}
-
-//Delete from separators
-pub fn delete_separator(conn: &Connection, id: i32) -> Result<()> {
-    conn.execute("DELETE FROM separators WHERE id = ?", params![id])?;
-
-    Ok(())
-}
-
-//////////to_sep_words
-//Create to_sep_words table
-pub fn create_sep_words(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS to_sep_words (
-                    id    INTEGER PRIMARY KEY,
-                    value TEXT NOT NULL
-                )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-//Create from to_sep_words
-pub fn insert_sep_word(conn: &Connection, word: &str) -> Result<()> {
-    conn.execute(
-        "INSERT INTO to_sep_words (value) VALUES (?1)",
-        params![word],
-    )?;
-    Ok(())
-}
-
-//Retrieve from to_sep_words
-pub fn retrieve_sep_word(conn: &Connection) -> Result<Vec<ToSepWord>> {
-    let mut stmt = conn.prepare("SELECT id,value FROM to_sep_words")?;
-    let rows = stmt.query_map(params![], |row| Ok((row.get(0)?, row.get(1)?)))?;
-
-    let mut results = Vec::new();
-    for row_rlt in rows {
-        let (id, value) = row_rlt?;
-        results.push(ToSepWord { id, value });
-    }
-
-    Ok(results)
-}
-
-//Update from to_sep_words
-pub fn update_sep_word(conn: &Connection, id: i32, new_value: &str) -> Result<()> {
-    conn.execute(
-        "UPDATE to_sep_words SET value = ?1 WHERE id = ?2",
-        params![new_value, id],
-    )?;
-
-    Ok(())
-}
-
-//Delete from to_sep_words
-pub fn delete_sep_word(conn: &Connection, id: i32) -> Result<()> {
-    conn.execute("DELETE FROM to_sep_words WHERE id = ?", params![id])?;
-
-    Ok(())
-}
-
-//////////records
-//Create records table
-pub fn create_records(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS records (
-                    id    INTEGER PRIMARY KEY,
-                    encrypted_previous_name TEXT NOT NULL,
-                    hashed_current_name TEXT NOT NULL,
-                    count INTEGER
-                )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-//Create from records
-pub fn insert_record(conn: &Connection, origin: &str, target: &str, count: i32) -> Result<()> {
-    conn.execute("INSERT INTO records (encrypted_previous_name, hashed_current_name, count) VALUES (?1, ?2, ?3)", params![origin,target,count])?;
-
-    Ok(())
-}
-
-//Retrieve from records
-pub fn retrieve_records(conn: &Connection) -> Result<Vec<Record>> {
-    let mut stmt =
-        conn.prepare("SELECT id,encrypted_previous_name,hashed_current_name,count FROM records")?;
-    let rows = stmt.query_map(params![], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-    })?;
-
-    let mut results = Vec::new();
-    for row_rlt in rows {
-        let (id, encrypted_previous_name, hashed_current_name, count) = row_rlt?;
-        results.push(Record {
-            id,
-            encrypted_previous_name,
-            hashed_current_name,
-            count,
-        });
-    }
-
-    Ok(results)
-}
-
-//Update from records
-pub fn update_records(conn: &Connection, id: i32, origin: &str, target: &str) -> Result<()> {
-    conn.execute(
-        "UPDATE records SET encrypted_previous_name = ?1, hashed_current_name = ?2 WHERE id = ?3",
-        params![origin, target, id],
-    )?;
-
-    Ok(())
-}
-
-//Delete from records
-pub fn delete_records(conn: &Connection, id: i32) -> Result<()> {
-    conn.execute("DELETE FROM records WHERE id = ?", params![id])?;
-
-    Ok(())
-}
-
-pub fn open_db(db_path: Option<&str>) -> Result<Connection> {
-    let db_path = match db_path {
-        Some(v) => PathBuf::from(v),
-        None => {
-            let db_dir = match UserDirs::new() {
-                Some(v) => {
-                    let path = v.home_dir().to_path_buf().join(".fdn");
-                    if !path.exists() {
-                        match fs::create_dir_all(path.clone()) {
-                            Ok(()) => path,
-                            Err(err) => panic!("{}", err),
-                        }
-                    } else {
-                        path
-                    }
-                }
-                None => PathBuf::from("."),
-            };
-            db_dir.join(DEFAULT_DB_NAME)
-        }
-    };
-
-    if !db_path.exists() {
-        match Connection::open(db_path) {
-            core::result::Result::Ok(conn) => {
-                //Create separators table and initial it with default value
-                create_separators(&conn)?;
-                let sep = Separator {
-                    id: 0,
-                    value: SEP_WORD.to_owned(),
-                };
-                insert_separator(&conn, &sep.value)?;
-
-                //Create to_sep_words table and initial it with default value
-                create_sep_words(&conn)?;
-                for w in TOBE_SEP_S {
-                    let to_sep_word = ToSepWord {
-                        id: 0,
-                        value: w.to_owned(),
-                    };
-                    insert_sep_word(&conn, &to_sep_word.value)?;
-                }
-
-                //Create records table
-                create_records(&conn)?;
-
-                Ok(conn)
-            }
-            Err(err) => Err(anyhow!(format!("{}", err))),
-        }
-    } else {
-        match Connection::open(db_path) {
-            core::result::Result::Ok(conn) => Ok(conn),
-            Err(err) => Err(anyhow!(format!("{}", err))),
-        }
-    }
-}
-
 pub fn remove_continuous(source: &str, word: &str) -> String {
     let re = Regex::new(&format!(r"(?i){}{}+", word, word)).unwrap();
     re.replace_all(source, word).to_string()
@@ -399,43 +243,65 @@ pub fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
     let f_ext = Path::new(&base_name)
         .extension()
         .and_then(OsStr::to_str)
-        .unwrap();
+        .unwrap_or("");
 
-    //remove prefix suffix sep
+    //remove prefix and suffix sep
     f_stem = f_stem
         .strip_prefix(&sep)
         .unwrap_or(f_stem)
         .strip_suffix(&sep)
         .unwrap_or(f_stem);
-    base_name = format!("{}.{}", f_stem, f_ext);
+    base_name = match f_ext.is_empty() {
+        true => f_stem.to_owned(),
+        false => format!("{}.{}", f_stem, f_ext),
+    };
 
     //take effect
     if in_place {
         let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
         let t_path = Path::new(&dir_base.dir).join(base_name.clone());
         fs::rename(s_path, t_path)?;
-        insert_record(&conn, &dir_base.base, &base_name, 1)?;
+        let rd = Record::new(&dir_base.clone().base, &base_name);
+        insert_record(&conn, rd)?;
     }
 
     Ok(base_name)
 }
 
-#[cfg(test)]
-mod tests {
+pub fn fdn_fs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
+    for f in files {
+        if !args.not_ignore_hidden && is_hidden(&f) {
+            continue;
+        }
+        if let Some(d_b) = dir_base(&f) {
+            let rlt = fdn_f(&d_b, args.in_place)?;
 
-    use crate::{open_db, remove_continuous, DEFAULT_DB_NAME};
-
-    #[test]
-    fn test_initial_db() {
-        let rlt = open_db(Some(DEFAULT_DB_NAME));
-        assert!(rlt.is_ok())
+            let (o_r, e_r) = match args.align {
+                true => s_compare(&d_b.base, &rlt, "a"),
+                false => s_compare(&d_b.base, &rlt, ""),
+            };
+            if !o_r.eq(&e_r) {
+                if args.in_place {
+                    println!("   {}\n==>{}", o_r, e_r);
+                } else {
+                    println!("   {}\n-->{}", o_r, e_r);
+                }
+            }
+        }
     }
 
-    #[test]
-    fn test_remove_continuous() {
-        let src = "A_B__C___D_.txt";
-        let sep = "_";
-        let tgt = "A_B_C_D_.txt";
-        assert_eq!(remove_continuous(src, sep), tgt);
-    }
+    Ok(())
+}
+
+pub fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<String> {
+    let conn = open_db(None).unwrap();
+
+    let base_name = &dir_base.base;
+    let rds = retrieve_records(&conn).unwrap();
+
+    Ok("".to_owned())
+}
+
+pub fn fdn_rfs_post() -> Result<()> {
+    Ok(())
 }
