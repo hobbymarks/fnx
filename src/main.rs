@@ -26,7 +26,7 @@ fn main() -> Result<()> {
         };
 
         if args.reverse {
-            fdn_rfs_post()?;
+            fdn_rfs_post(files, args)?;
         } else {
             fdn_fs_post(files, args)?;
         }
@@ -37,7 +37,7 @@ fn main() -> Result<()> {
         };
 
         if args.reverse {
-            fdn_rfs_post()?;
+            fdn_rfs_post(files, args)?;
         } else {
             fdn_fs_post(files, args)?;
         }

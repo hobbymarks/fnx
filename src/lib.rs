@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use regex::Regex;
+use rustc_serialize::hex::FromHex;
 use std::{
     cmp::Ordering,
     collections::HashMap,
@@ -98,6 +99,7 @@ pub struct ToSepWord {
     pub value: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct Record {
     id: i32,
     hashed_current_name: String,
@@ -293,15 +295,65 @@ pub fn fdn_fs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
     Ok(())
 }
 
-pub fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<String> {
+pub fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
     let conn = open_db(None).unwrap();
 
     let base_name = &dir_base.base;
     let rds = retrieve_records(&conn).unwrap();
 
-    Ok("".to_owned())
+    let map: HashMap<_, _> = rds
+        .iter()
+        .map(|rd| {
+            (
+                rd.clone().hashed_current_name,
+                rd.clone().encrypted_pre_name,
+            )
+        })
+        .collect();
+    let rd = map.get(&hashed_name(base_name));
+
+    match rd {
+        Some(v) => match decrypted(v, base_name) {
+            Ok(v) => {
+                let rt = v.from_hex().unwrap();
+                let base_name = String::from_utf8(rt).unwrap();
+                //take effect
+                if in_place {
+                    let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
+                    let t_path = Path::new(&dir_base.dir).join(base_name.clone());
+                    fs::rename(s_path, t_path)?;
+                    // let rd = Record::new(&dir_base.clone().base, &base_name);
+                    // insert_record(&conn, rd)?;
+                }
+                Ok(Some(base_name))
+            }
+            Err(err) => Err(err),
+        },
+        None => Ok(None),
+    }
 }
 
-pub fn fdn_rfs_post() -> Result<()> {
+pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
+    for f in files {
+        if !args.not_ignore_hidden && is_hidden(&f) {
+            continue;
+        }
+        if let Some(d_b) = dir_base(&f) {
+            if let Ok(Some(rlt)) = fdn_rf(&d_b, args.in_place) {
+                let (o_r, e_r) = match args.align {
+                    true => s_compare(&d_b.base, &rlt, "a"),
+                    false => s_compare(&d_b.base, &rlt, ""),
+                };
+                if !o_r.eq(&e_r) {
+                    if args.in_place {
+                        println!("   {}\n==>{}", o_r, e_r);
+                    } else {
+                        println!("   {}\n-->{}", o_r, e_r);
+                    }
+                }
+            };
+        }
+    }
+
     Ok(())
 }

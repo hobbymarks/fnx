@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use crypto::{
     aes::{self, KeySize},
     blockmodes,
@@ -17,7 +17,7 @@ pub fn hashed_name(s: &str) -> String {
 
 pub fn encrypted(plain: &str, key: &str) -> Result<String> {
     let mut encryptor = aes::cbc_encryptor(
-        KeySize::KeySize256,
+        KeySize::KeySize128,
         key.as_bytes(),
         &IV,
         blockmodes::PkcsPadding,
@@ -52,7 +52,7 @@ pub fn encrypted(plain: &str, key: &str) -> Result<String> {
 
 pub fn decrypted(encrypted: &str, key: &str) -> Result<String> {
     let mut decryptor = aes::cbc_decryptor(
-        KeySize::KeySize256,
+        KeySize::KeySize128,
         key.as_bytes(),
         &IV,
         blockmodes::PkcsPadding,
@@ -65,9 +65,11 @@ pub fn decrypted(encrypted: &str, key: &str) -> Result<String> {
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
 
     loop {
-        let result = decryptor
-            .decrypt(&mut read_buffer, &mut write_buffer, true)
-            .unwrap();
+        let result = match decryptor.decrypt(&mut read_buffer, &mut write_buffer, true) {
+            Ok(v) => v,
+            Err(err) => return Err(anyhow!("{:?}", err)),
+        };
+
         final_result.extend(
             write_buffer
                 .take_read_buffer()
@@ -82,4 +84,27 @@ pub fn decrypted(encrypted: &str, key: &str) -> Result<String> {
     }
 
     Ok(final_result.to_hex())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hashed_name;
+
+    #[test]
+    fn test_hashed_name() {
+        let s_v = [
+            (
+                "HelloWorld",
+                "872e4e50ce9990d8b041330c47c9ddd11bec6b503ae9386a99da8584e9bb12c4",
+            ),
+            (
+                "HelloWorld!",
+                "729e344a01e52c822bdfdec61e28d6eda02658d2e7d2b80a9b9029f41e212dde",
+            ),
+        ];
+        for (k, v) in s_v {
+            let rlt = hashed_name(k);
+            assert_eq!(rlt, v);
+        }
+    }
 }
