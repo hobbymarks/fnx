@@ -36,7 +36,7 @@ pub struct Args {
     #[arg(short = 't', long, default_value = "f")]
     pub filetype: String,
 
-    ///ignore hidden file
+    ///not ignore hidden file
     #[arg(short = 'I', long, default_value = "false")]
     not_ignore_hidden: bool,
 
@@ -248,11 +248,7 @@ pub fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         .unwrap_or("");
 
     //remove prefix and suffix sep
-    f_stem = f_stem
-        .strip_prefix(&sep)
-        .unwrap_or(f_stem)
-        .strip_suffix(&sep)
-        .unwrap_or(f_stem);
+    f_stem = remove_prefix_sep_suffix_sep(f_stem, &sep);
     base_name = match f_ext.is_empty() {
         true => f_stem.to_owned(),
         false => format!("{}.{}", f_stem, f_ext),
@@ -268,6 +264,11 @@ pub fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
     }
 
     Ok(base_name)
+}
+
+fn remove_prefix_sep_suffix_sep<'a>(s: &'a str, sep: &'a str) -> &'a str {
+    let s = s.strip_prefix(sep).unwrap_or(s);
+    s.strip_suffix(&sep).unwrap_or(s)
 }
 
 pub fn fdn_fs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
@@ -356,4 +357,19 @@ pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::remove_prefix_sep_suffix_sep;
+
+    #[test]
+    fn test_remove_xfix_sep() {
+        let sep = "_";
+        let s = "_PDFScholar_";
+        assert!(s.starts_with(sep));
+        assert!(s.ends_with(sep));
+        let t = "PDFScholar";
+        assert_eq!(remove_prefix_sep_suffix_sep(s, sep), t);
+    }
 }
