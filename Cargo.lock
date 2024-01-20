@@ -222,6 +222,7 @@ dependencies = [
  "rustc-serialize",
  "unicode-width",
  "walkdir",
+ "winapi",
 ]
 
 [[package]]

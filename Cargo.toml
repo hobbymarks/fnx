@@ -25,6 +25,7 @@ rust-crypto = "0.2.36"
 rustc-serialize = "0.3.25"
 unicode-width = "0.1.11"
 walkdir = "2.4.0"
+winapi = "0.3.9"
 
 [build-dependencies]
 git2 = "0.18.1"
