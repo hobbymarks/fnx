@@ -1,8 +1,7 @@
-use std::{fs, path::PathBuf};
-
 use anyhow::{anyhow, Result};
 use directories::UserDirs;
 use rusqlite::{params, Connection};
+use std::{fs, path::PathBuf};
 
 use crate::{Record, Separator, ToSepWord};
 
@@ -18,8 +17,9 @@ const TOBE_SEP_S: [&str; 24] = [
 pub fn create_separators_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS separators (
-                    id    INTEGER PRIMARY KEY,
-                    value TEXT NOT NULL
+                    id      INTEGER PRIMARY KEY,
+                    value   TEXT NOT NULL UNIQUE,
+                    created TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
                 )",
         (),
     )?;
@@ -66,11 +66,12 @@ pub fn delete_separator(conn: &Connection, id: i32) -> Result<()> {
 
 //////////to_sep_words
 //Create to_sep_words table
-pub fn create_sep_words_table(conn: &Connection) -> Result<()> {
+pub fn create_to_sep_words_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS to_sep_words (
-                    id    INTEGER PRIMARY KEY,
-                    value TEXT NOT NULL
+                    id      INTEGER PRIMARY KEY,
+                    value   TEXT NOT NULL UNIQUE,
+                    created TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
                 )",
         (),
     )?;
@@ -79,7 +80,7 @@ pub fn create_sep_words_table(conn: &Connection) -> Result<()> {
 }
 
 //Create from to_sep_words
-pub fn insert_sep_word(conn: &Connection, word: &str) -> Result<()> {
+pub fn insert_to_sep_word(conn: &Connection, word: &str) -> Result<()> {
     conn.execute(
         "INSERT INTO to_sep_words (value) VALUES (?1)",
         params![word],
@@ -88,7 +89,7 @@ pub fn insert_sep_word(conn: &Connection, word: &str) -> Result<()> {
 }
 
 //Retrieve from to_sep_words
-pub fn retrieve_sep_word(conn: &Connection) -> Result<Vec<ToSepWord>> {
+pub fn retrieve_to_sep_words(conn: &Connection) -> Result<Vec<ToSepWord>> {
     let mut stmt = conn.prepare("SELECT id,value FROM to_sep_words")?;
     let rows = stmt.query_map(params![], |row| Ok((row.get(0)?, row.get(1)?)))?;
 
@@ -102,7 +103,7 @@ pub fn retrieve_sep_word(conn: &Connection) -> Result<Vec<ToSepWord>> {
 }
 
 //Update from to_sep_words
-pub fn update_sep_word(conn: &Connection, id: i32, new_value: &str) -> Result<()> {
+pub fn update_to_sep_word(conn: &Connection, id: i32, new_value: &str) -> Result<()> {
     conn.execute(
         "UPDATE to_sep_words SET value = ?1 WHERE id = ?2",
         params![new_value, id],
@@ -112,7 +113,7 @@ pub fn update_sep_word(conn: &Connection, id: i32, new_value: &str) -> Result<()
 }
 
 //Delete from to_sep_words
-pub fn delete_sep_word(conn: &Connection, id: i32) -> Result<()> {
+pub fn delete_to_sep_word(conn: &Connection, id: i32) -> Result<()> {
     conn.execute("DELETE FROM to_sep_words WHERE id = ?", params![id])?;
 
     Ok(())
@@ -126,7 +127,8 @@ pub fn create_records_table(conn: &Connection) -> Result<()> {
                     id                      INTEGER PRIMARY KEY,
                     hashed_current_name     TEXT NOT NULL,
                     encrypted_previous_name TEXT NOT NULL,
-                    count                   INTEGER
+                    count                   INTEGER,
+                    created     TIMESTAMP DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
                 )",
         (),
     )?;
@@ -214,13 +216,13 @@ pub fn open_db(db_path: Option<&str>) -> Result<Connection> {
                 insert_separator(&conn, &sep.value)?;
 
                 //Create to_sep_words table and initial it with default value
-                create_sep_words_table(&conn)?;
+                create_to_sep_words_table(&conn)?;
                 for w in TOBE_SEP_S {
                     let to_sep_word = ToSepWord {
                         id: 0,
                         value: w.to_owned(),
                     };
-                    insert_sep_word(&conn, &to_sep_word.value)?;
+                    insert_to_sep_word(&conn, &to_sep_word.value)?;
                 }
 
                 //Create records table

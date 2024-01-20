@@ -1,12 +1,16 @@
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use clap::Parser;
 use std::path::{Path, PathBuf};
 
-use fdn::{directories, fdn_fs_post, fdn_rfs_post, regular_files, Args};
+use fdn::{
+    config_add, config_delete, config_list, directories, fdn_fs_post, fdn_rfs_post, regular_files,
+    Args, Commands,
+};
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    //process version
     if args.version {
         println!(
             "fdn\nVersion {}\nBuild {}",
@@ -17,6 +21,34 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    //process subcommands
+    if let Some(ref subcmd) = args.command {
+        match subcmd {
+            Commands::Config {
+                list: ls,
+                add: cfg,
+                delete: dlt,
+            } => {
+                if let Some(word) = cfg {
+                    config_add(word)?;
+
+                    return Ok(());
+                }
+                if let Some(word) = dlt {
+                    config_delete(word)?;
+
+                    return Ok(());
+                }
+                if *ls {
+                    config_list()?;
+
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    //process fdn
     let input_path = Path::new(&args.file_path);
 
     if args.filetype == "f" {

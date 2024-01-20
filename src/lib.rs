@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use regex::Regex;
+use rusqlite::Connection;
 use rustc_serialize::hex::FromHex;
 use std::{
     cmp::Ordering,
@@ -10,8 +11,9 @@ use std::{
     path::{Path, PathBuf},
 };
 use utils::{
-    db::{retrieve_records, retrieve_sep_word, retrieve_separators},
-    decrypted, encrypted, hashed_name, insert_record, open_db, s_compare,
+    db::{retrieve_records, retrieve_separators, retrieve_to_sep_words},
+    decrypted, delete_records, delete_to_sep_word, encrypted, hashed_name, insert_record,
+    insert_to_sep_word, open_db, s_compare,
 };
 use walkdir::WalkDir;
 
@@ -32,7 +34,7 @@ pub struct Args {
     #[arg(short = 'd', long, default_value = "1")]
     pub max_depth: usize,
 
-    ///file type
+    ///file type,'f' for regular file and 'd' for directory
     #[arg(short = 't', long, default_value = "f")]
     pub filetype: String,
 
@@ -53,11 +55,11 @@ pub struct Args {
     pub version: bool,
 
     #[command(subcommand)]
-    command: Option<Commands>,
+    pub command: Option<Commands>,
 }
 
 #[derive(Debug, Subcommand)]
-enum Commands {
+pub enum Commands {
     ///Config pattern
     Config {
         ///List all configurations
@@ -66,11 +68,11 @@ enum Commands {
 
         ///Config Separators,Terms ...
         #[arg(short = 'c', long)]
-        config: String,
+        add: Option<String>,
 
         ///Delete configurations
         #[arg(short = 'd', long)]
-        delete: String,
+        delete: Option<String>,
     },
 }
 
@@ -115,13 +117,13 @@ impl Record {
             id: 0,
             hashed_current_name: hashed,
             encrypted_pre_name: encrypted,
-            count: 0,
+            count: 1,
         }
     }
 
-    pub fn pre_name(self, current: &str) -> Result<String> {
-        decrypted(&self.encrypted_pre_name, current)
-    }
+    // pub fn pre_name(self, current: &str) -> Result<String> {
+    //     decrypted(&self.encrypted_pre_name, current)
+    // }
 }
 
 pub fn regular_files(directory: &Path, depth: usize) -> Result<Vec<PathBuf>> {
@@ -166,7 +168,7 @@ pub fn directories(directory: &Path, depth: usize) -> Result<Vec<PathBuf>> {
 }
 
 ///dir_base function create DirBase struct from abs_path
-pub fn dir_base(abs_path: &Path) -> Option<DirBase> {
+fn dir_base(abs_path: &Path) -> Option<DirBase> {
     if let Some(base_name) = abs_path.file_name() {
         if let Some(dir_path) = abs_path.parent() {
             return Some(DirBase {
@@ -196,7 +198,7 @@ fn is_hidden_windows(path: &Path) -> bool {
     }
 }
 
-pub fn is_hidden(path: &Path) -> bool {
+fn is_hidden(path: &Path) -> bool {
     #[cfg(unix)]
     {
         is_hidden_unix(path)
@@ -207,12 +209,17 @@ pub fn is_hidden(path: &Path) -> bool {
     }
 }
 
-pub fn remove_continuous(source: &str, word: &str) -> String {
+fn remove_continuous(source: &str, word: &str) -> String {
     let re = Regex::new(&format!(r"(?i){}{}+", word, word)).unwrap();
     re.replace_all(source, word).to_string()
 }
 
-pub fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
+fn remove_prefix_sep_suffix_sep<'a>(s: &'a str, sep: &'a str) -> &'a str {
+    let s = s.strip_prefix(sep).unwrap_or(s);
+    s.strip_suffix(&sep).unwrap_or(s)
+}
+
+fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
     let conn = open_db(None).unwrap();
 
     let sep = retrieve_separators(&conn)?;
@@ -224,7 +231,7 @@ pub fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         }
     };
 
-    let to_sep_words = retrieve_sep_word(&conn)?;
+    let to_sep_words = retrieve_to_sep_words(&conn)?;
 
     let replacements_map: HashMap<_, _> = to_sep_words
         .iter()
@@ -255,7 +262,7 @@ pub fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
     };
 
     //take effect
-    if in_place {
+    if base_name != dir_base.base && in_place {
         let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
         let t_path = Path::new(&dir_base.dir).join(base_name.clone());
         fs::rename(s_path, t_path)?;
@@ -264,11 +271,6 @@ pub fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
     }
 
     Ok(base_name)
-}
-
-fn remove_prefix_sep_suffix_sep<'a>(s: &'a str, sep: &'a str) -> &'a str {
-    let s = s.strip_prefix(sep).unwrap_or(s);
-    s.strip_suffix(&sep).unwrap_or(s)
 }
 
 pub fn fdn_fs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
@@ -296,7 +298,7 @@ pub fn fdn_fs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
     Ok(())
 }
 
-pub fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
+fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
     let conn = open_db(None).unwrap();
 
     let base_name = &dir_base.base;
@@ -304,17 +306,12 @@ pub fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
 
     let map: HashMap<_, _> = rds
         .iter()
-        .map(|rd| {
-            (
-                rd.clone().hashed_current_name,
-                rd.clone().encrypted_pre_name,
-            )
-        })
+        .map(|rd| (rd.clone().hashed_current_name, rd.clone()))
         .collect();
     let rd = map.get(&hashed_name(base_name));
 
     match rd {
-        Some(v) => match decrypted(v, base_name) {
+        Some(rd) => match decrypted(&rd.encrypted_pre_name, base_name) {
             Ok(v) => {
                 let rt = v.from_hex().unwrap();
                 let base_name = String::from_utf8(rt).unwrap();
@@ -323,8 +320,9 @@ pub fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
                     let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
                     let t_path = Path::new(&dir_base.dir).join(base_name.clone());
                     fs::rename(s_path, t_path)?;
-                    // let rd = Record::new(&dir_base.clone().base, &base_name);
-                    // insert_record(&conn, rd)?;
+                    if rd.count == 1 {
+                        delete_records(&conn, rd.id)?;
+                    }
                 }
                 Ok(Some(base_name))
             }
@@ -354,6 +352,42 @@ pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
                 }
             };
         }
+    }
+
+    Ok(())
+}
+
+fn list_to_sep_words(conn: &Connection) -> Result<()> {
+    let mut rlts = retrieve_to_sep_words(conn)?;
+    println!("ID\tValue");
+    rlts.sort_by_key(|tsw| tsw.id);
+    for tsw in rlts {
+        println!("{}\t{}", tsw.id, tsw.value);
+    }
+    Ok(())
+}
+pub fn config_list() -> Result<()> {
+    let conn = open_db(None)?;
+    list_to_sep_words(&conn)?;
+
+    Ok(())
+}
+
+pub fn config_add(word: &str) -> Result<()> {
+    let conn = open_db(None)?;
+    insert_to_sep_word(&conn, word)?;
+    list_to_sep_words(&conn)?;
+
+    Ok(())
+}
+
+pub fn config_delete(word: &str) -> Result<()> {
+    let conn = open_db(None)?;
+    let rlts = retrieve_to_sep_words(&conn)?;
+    let the_word = rlts.iter().find(|&w| w.value == word);
+    if let Some(w) = the_word {
+        delete_to_sep_word(&conn, w.id)?;
+        list_to_sep_words(&conn)?;
     }
 
     Ok(())
