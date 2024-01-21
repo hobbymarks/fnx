@@ -1,6 +1,6 @@
 [package]
 name = "fdn"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 authors = ["Marks <ihobbymarks@gmail.com>"]
 description = "A tool for uniformly change file or directory names and support rollback these operations"
@@ -20,7 +20,7 @@ difference = "2.0.0"
 directories = "5.0.1"
 log = "0.4.20"
 regex = "1.10.2"
-rusqlite = "0.30.0"
+rusqlite = { version = "0.30.0", features = ["bundled"] }
 rust-crypto = "0.2.36"
 rustc-serialize = "0.3.25"
 unicode-width = "0.1.11"

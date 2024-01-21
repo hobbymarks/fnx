@@ -188,7 +188,7 @@ fn is_hidden_unix(path: &Path) -> bool {
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt;
 #[cfg(windows)]
-use winapi::um::fileapi::FILE_ATTRIBUTE_HIDDEN;
+use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
 
 #[cfg(windows)]
 fn is_hidden_windows(path: &Path) -> bool {
