@@ -1,6 +1,6 @@
 [package]
 name = "fdn"
-version = "0.7.2"
+version = "0.7.3"
 edition = "2021"
 authors = ["Marks <ihobbymarks@gmail.com>"]
 description = "A tool for uniformly change file or directory names and support rollback these operations"

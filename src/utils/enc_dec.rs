@@ -15,10 +15,41 @@ pub fn hashed_name(s: &str) -> String {
     sha.result_str()
 }
 
-pub fn encrypted(plain: &str, key: &str) -> Result<String> {
+fn key_bytes(key_plain: &str, ks: KeySize) -> Vec<u8> {
+    match ks {
+        KeySize::KeySize128 => {
+            let mut out = [0_u8; 32];
+            let mut sha = Sha256::new();
+            sha.input_str(key_plain);
+            sha.result(&mut out);
+
+            out[..16].to_vec()
+        }
+        KeySize::KeySize192 => {
+            let mut out = [0_u8; 32];
+            let mut sha = Sha256::new();
+            sha.input_str(key_plain);
+            sha.result(&mut out);
+
+            out[..24].to_vec()
+        }
+        KeySize::KeySize256 => {
+            let mut out = [0_u8; 32];
+            let mut sha = Sha256::new();
+            sha.input_str(key_plain);
+            sha.result(&mut out);
+
+            out[..].to_vec()
+        }
+    }
+}
+
+pub fn encrypted(plain: &str, key_plain: &str) -> Result<String> {
+    let key_size = KeySize::KeySize128;
+
     let mut encryptor = aes::cbc_encryptor(
-        KeySize::KeySize128,
-        key.as_bytes(),
+        key_size,
+        &key_bytes(key_plain, key_size),
         &IV,
         blockmodes::PkcsPadding,
     );
@@ -50,10 +81,12 @@ pub fn encrypted(plain: &str, key: &str) -> Result<String> {
     Ok(final_result.to_hex())
 }
 
-pub fn decrypted(encrypted: &str, key: &str) -> Result<String> {
+pub fn decrypted(encrypted: &str, key_plain: &str) -> Result<String> {
+    let key_size = KeySize::KeySize128;
+
     let mut decryptor = aes::cbc_decryptor(
-        KeySize::KeySize128,
-        key.as_bytes(),
+        key_size,
+        &key_bytes(key_plain, key_size),
         &IV,
         blockmodes::PkcsPadding,
     );
@@ -88,7 +121,9 @@ pub fn decrypted(encrypted: &str, key: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::hashed_name;
+    use rustc_serialize::hex::FromHex;
+
+    use super::{decrypted, encrypted, hashed_name};
 
     #[test]
     fn test_hashed_name() {
@@ -106,5 +141,16 @@ mod tests {
             let rlt = hashed_name(k);
             assert_eq!(rlt, v);
         }
+    }
+
+    #[test]
+    fn test_enc_dec() {
+        let plain = "HelloWorld";
+        let k = "key";
+        let enc = encrypted(plain, k).unwrap();
+        let dec = decrypted(&enc, k).unwrap();
+        let dec = dec.from_hex().unwrap();
+
+        assert_eq!(plain, String::from_utf8(dec).unwrap());
     }
 }
