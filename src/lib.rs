@@ -257,11 +257,11 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         .and_then(OsStr::to_str)
         .unwrap_or("");
 
-    //term words
-    let term_words = retrieve_term_words(&conn)?;
-    let replacements_map: HashMap<_, _> = term_words
+    //replace to sep words
+    let to_sep_words = retrieve_to_sep_words(&conn)?;
+    let replacements_map: HashMap<_, _> = to_sep_words
         .iter()
-        .map(|e| (e.key.clone(), e.value.clone()))
+        .map(|e| (e.value.clone(), sep.clone()))
         .collect();
     let mut old_f_stem = f_stem.clone();
     loop {
@@ -275,11 +275,11 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         }
     }
 
-    //replace to sep words
-    let to_sep_words = retrieve_to_sep_words(&conn)?;
-    let replacements_map: HashMap<_, _> = to_sep_words
+    //term words
+    let term_words = retrieve_term_words(&conn)?;
+    let replacements_map: HashMap<_, _> = term_words
         .iter()
-        .map(|e| (e.value.clone(), sep.clone()))
+        .map(|e| (e.key.clone(), e.value.clone()))
         .collect();
     let mut old_f_stem = f_stem.clone();
     loop {
