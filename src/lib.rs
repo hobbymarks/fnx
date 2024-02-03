@@ -252,22 +252,28 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
 
     let mut base_name = dir_base.base.to_owned();
 
-    //replace to sep words
-    for (k, v) in &replacements_map {
-        base_name = base_name.replace(k, v);
-    }
-    //remove continuous
-    base_name = remove_continuous(&base_name, &sep);
-
     //split to stem and extension
-    let mut f_stem = Path::new(&base_name).file_stem().unwrap().to_str().unwrap();
+    let mut f_stem = Path::new(&base_name)
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
     let f_ext = Path::new(&base_name)
         .extension()
         .and_then(OsStr::to_str)
         .unwrap_or("");
 
+    //replace to sep words
+    for (k, v) in &replacements_map {
+        f_stem = f_stem.replace(k, v);
+    }
+    //remove continuous
+    f_stem = remove_continuous(&f_stem, &sep);
+
     //remove prefix and suffix sep
-    f_stem = remove_prefix_sep_suffix_sep(f_stem, &sep);
+    f_stem = remove_prefix_sep_suffix_sep(&f_stem, &sep).to_owned();
+
     base_name = match f_ext.is_empty() {
         true => f_stem.to_owned(),
         false => format!("{}.{}", f_stem, f_ext),
