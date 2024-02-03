@@ -257,14 +257,40 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         .and_then(OsStr::to_str)
         .unwrap_or("");
 
+    //term words
+    let term_words = retrieve_term_words(&conn)?;
+    let replacements_map: HashMap<_, _> = term_words
+        .iter()
+        .map(|e| (e.key.clone(), e.value.clone()))
+        .collect();
+    let mut old_f_stem = f_stem.clone();
+    loop {
+        for (k, v) in &replacements_map {
+            f_stem = f_stem.replace(k, v);
+        }
+        if old_f_stem.eq(&f_stem) {
+            break;
+        } else {
+            old_f_stem = f_stem.clone();
+        }
+    }
+
     //replace to sep words
     let to_sep_words = retrieve_to_sep_words(&conn)?;
     let replacements_map: HashMap<_, _> = to_sep_words
         .iter()
         .map(|e| (e.value.clone(), sep.clone()))
         .collect();
-    for (k, v) in &replacements_map {
-        f_stem = f_stem.replace(k, v);
+    let mut old_f_stem = f_stem.clone();
+    loop {
+        for (k, v) in &replacements_map {
+            f_stem = f_stem.replace(k, v);
+        }
+        if old_f_stem.eq(&f_stem) {
+            break;
+        } else {
+            old_f_stem = f_stem.clone();
+        }
     }
 
     //remove continuous
