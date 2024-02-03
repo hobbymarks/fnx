@@ -11,9 +11,9 @@ use std::{
     path::{Path, PathBuf},
 };
 use utils::{
-    db::{retrieve_records, retrieve_separators, retrieve_to_sep_words},
-    decrypted, delete_records, delete_to_sep_word, encrypted, hashed_name, insert_record,
-    insert_to_sep_word, open_db, s_compare,
+    db::{insert_term_word, retrieve_records, retrieve_separators, retrieve_to_sep_words},
+    decrypted, delete_records, delete_term_word, delete_to_sep_word, encrypted, hashed_name,
+    insert_record, insert_to_sep_word, open_db, s_compare,
 };
 use walkdir::WalkDir;
 
@@ -41,6 +41,10 @@ pub struct Args {
     ///not ignore hidden file
     #[arg(short = 'I', long, default_value = "false")]
     not_ignore_hidden: bool,
+
+    ///exclude file or directory
+    #[arg(short = 'X', long, default_value = "None")]
+    pub exclude_path: Option<String>,
 
     ///reverse change
     #[arg(short = 'r', long, default_value = "false")]
@@ -98,6 +102,12 @@ impl Default for Separator {
 }
 pub struct ToSepWord {
     id: i32,
+    pub value: String,
+}
+
+pub struct TermWord {
+    id: i32,
+    pub key: String,
     pub value: String,
 }
 
@@ -189,6 +199,8 @@ fn is_hidden_unix(path: &Path) -> bool {
 use std::os::windows::fs::MetadataExt;
 #[cfg(windows)]
 use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
+
+use crate::utils::retrieve_term_words;
 
 #[cfg(windows)]
 fn is_hidden_windows(path: &Path) -> bool {
@@ -366,28 +378,58 @@ fn list_to_sep_words(conn: &Connection) -> Result<()> {
     }
     Ok(())
 }
+fn list_term_words(conn: &Connection) -> Result<()> {
+    let mut rlts = retrieve_term_words(conn)?;
+    println!("ID\tKey\tValue");
+    rlts.sort_by_key(|tw| tw.id);
+    for tw in rlts {
+        println!("{}\t{}\t{}", tw.id, tw.key, tw.value);
+    }
+    Ok(())
+}
 pub fn config_list() -> Result<()> {
     let conn = open_db(None)?;
     list_to_sep_words(&conn)?;
+    list_term_words(&conn)?;
 
     Ok(())
 }
 
 pub fn config_add(word: &str) -> Result<()> {
     let conn = open_db(None)?;
-    insert_to_sep_word(&conn, word)?;
-    list_to_sep_words(&conn)?;
+    match word.split_once(':') {
+        Some((key, value)) => {
+            insert_term_word(&conn, key, value)?;
+            list_term_words(&conn)?;
+        }
+        None => {
+            insert_to_sep_word(&conn, word)?;
+            list_to_sep_words(&conn)?;
+        }
+    }
 
     Ok(())
 }
 
 pub fn config_delete(word: &str) -> Result<()> {
     let conn = open_db(None)?;
-    let rlts = retrieve_to_sep_words(&conn)?;
-    let the_word = rlts.iter().find(|&w| w.value == word);
-    if let Some(w) = the_word {
-        delete_to_sep_word(&conn, w.id)?;
-        list_to_sep_words(&conn)?;
+    match word.split_once(':') {
+        Some((key, value)) => {
+            let rlts = retrieve_term_words(&conn)?;
+            let the_word = rlts.iter().find(|&w| w.key == key && w.value == value);
+            if let Some(w) = the_word {
+                delete_term_word(&conn, w.id)?;
+                list_term_words(&conn)?;
+            }
+        }
+        None => {
+            let rlts = retrieve_to_sep_words(&conn)?;
+            let the_word = rlts.iter().find(|&w| w.value == word);
+            if let Some(w) = the_word {
+                delete_to_sep_word(&conn, w.id)?;
+                list_to_sep_words(&conn)?;
+            }
+        }
     }
 
     Ok(())
