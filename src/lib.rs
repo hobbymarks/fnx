@@ -243,13 +243,6 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         }
     };
 
-    let to_sep_words = retrieve_to_sep_words(&conn)?;
-
-    let replacements_map: HashMap<_, _> = to_sep_words
-        .iter()
-        .map(|e| (e.value.clone(), sep.clone()))
-        .collect();
-
     let mut base_name = dir_base.base.to_owned();
 
     //split to stem and extension
@@ -265,9 +258,15 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         .unwrap_or("");
 
     //replace to sep words
+    let to_sep_words = retrieve_to_sep_words(&conn)?;
+    let replacements_map: HashMap<_, _> = to_sep_words
+        .iter()
+        .map(|e| (e.value.clone(), sep.clone()))
+        .collect();
     for (k, v) in &replacements_map {
         f_stem = f_stem.replace(k, v);
     }
+
     //remove continuous
     f_stem = remove_continuous(&f_stem, &sep);
 
