@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 use regex::Regex;
 use rusqlite::Connection;
 use rustc_serialize::hex::FromHex;
@@ -43,8 +43,8 @@ pub struct Args {
     not_ignore_hidden: bool,
 
     ///exclude file or directory
-    #[arg(short = 'X', long, default_value = "None")]
-    pub exclude_path: Option<String>,
+    #[arg(short = 'X', long, default_values_t = Vec::<String>::new(), action = ArgAction::Append)]
+    pub exclude_path: Vec<String>,
 
     ///reverse change
     #[arg(short = 'r', long, default_value = "false")]
@@ -139,109 +139,52 @@ impl Record {
 pub fn regular_files(
     directory: &Path,
     depth: usize,
-    exclude: Option<&Path>,
+    excludes: Vec<&Path>,
 ) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
 
-    match exclude {
-        Some(e) => {
-            if e.is_dir() {
-                for entry in WalkDir::new(directory)
-                    .max_depth(depth)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
-                {
-                    if entry.file_type().is_file()
-                        && !entry
-                            .path()
-                            .canonicalize()
-                            .unwrap()
-                            .starts_with(e.canonicalize().unwrap())
-                    {
-                        paths.push(entry.into_path());
-                    }
-                }
-            } else {
-                for entry in WalkDir::new(directory)
-                    .max_depth(depth)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
-                {
-                    if entry.file_type().is_file() {
-                        paths.push(entry.into_path());
-                    }
-                }
-                if e.is_file() {
-                    paths.retain(|f| {
-                        f.as_path().canonicalize().unwrap() != e.canonicalize().unwrap()
-                    });
-                }
-            }
+    for entry in WalkDir::new(directory)
+        .max_depth(depth)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_file() {
+            paths.push(entry.into_path());
         }
-        None => {
-            for entry in WalkDir::new(directory)
-                .max_depth(depth)
-                .into_iter()
-                .filter_map(|e| e.ok())
-            {
-                if entry.file_type().is_file() {
-                    paths.push(entry.into_path());
-                }
-            }
-        }
+    }
+
+    for e in excludes {
+        paths.retain(|f| {
+            !f.as_path()
+                .canonicalize()
+                .unwrap()
+                .starts_with(e.canonicalize().unwrap())
+        });
     }
 
     Ok(paths)
 }
 
-pub fn directories(
-    directory: &Path,
-    depth: usize,
-    exclude: Option<&Path>,
-) -> Result<Vec<PathBuf>> {
+pub fn directories(directory: &Path, depth: usize, excludes: Vec<&Path>) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
 
-    match exclude {
-        Some(e) => {
-            if e.is_dir() {
-                for entry in WalkDir::new(directory)
-                    .max_depth(depth)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
-                {
-                    if entry.file_type().is_dir()
-                        && !entry
-                            .path()
-                            .canonicalize()
-                            .unwrap()
-                            .starts_with(e.canonicalize().unwrap())
-                    {
-                        paths.push(entry.into_path());
-                    }
-                }
-            } else {
-                for entry in WalkDir::new(directory)
-                    .max_depth(depth)
-                    .into_iter()
-                    .filter_map(|e| e.ok())
-                {
-                    if entry.file_type().is_dir() {
-                        paths.push(entry.into_path());
-                    }
-                }
-            }
+    for entry in WalkDir::new(directory)
+        .max_depth(depth)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_dir() {
+            paths.push(entry.into_path());
         }
-        None => {
-            for entry in WalkDir::new(directory)
-                .max_depth(depth)
-                .into_iter()
-                .filter_map(|e| e.ok())
-            {
-                if entry.file_type().is_dir() {
-                    paths.push(entry.into_path());
-                }
-            }
-        }
+    }
+
+    for e in excludes {
+        paths.retain(|f| {
+            !f.as_path()
+                .canonicalize()
+                .unwrap()
+                .starts_with(e.canonicalize().unwrap())
+        });
     }
 
     paths.sort_by(|a, b| {
