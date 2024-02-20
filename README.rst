@@ -33,12 +33,11 @@ Installation
 ------------
 
 To install fdn via
-`brew <https://brew.sh/>`__:
+`cargo <https://doc.rust-lang.org/cargo/getting-started/installation.html>`__:
 
 .. code:: bash
 
-   $ brew tap hobbymarks/hobbymarks
-   $ brew install fdn
+   $ cargo install fdn
 
 Usage/参数
 ----------
