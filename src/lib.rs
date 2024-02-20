@@ -136,32 +136,111 @@ impl Record {
     // }
 }
 
-pub fn regular_files(directory: &Path, depth: usize) -> Result<Vec<PathBuf>> {
+pub fn regular_files(
+    directory: &Path,
+    depth: usize,
+    exclude: Option<&Path>,
+) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
 
-    for entry in WalkDir::new(directory)
-        .max_depth(depth)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if entry.file_type().is_file() {
-            paths.push(entry.into_path());
+    match exclude {
+        Some(e) => {
+            if e.is_dir() {
+                for entry in WalkDir::new(directory)
+                    .max_depth(depth)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                {
+                    if entry.file_type().is_file()
+                        && !entry
+                            .path()
+                            .canonicalize()
+                            .unwrap()
+                            .starts_with(e.canonicalize().unwrap())
+                    {
+                        paths.push(entry.into_path());
+                    }
+                }
+            } else {
+                for entry in WalkDir::new(directory)
+                    .max_depth(depth)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                {
+                    if entry.file_type().is_file() {
+                        paths.push(entry.into_path());
+                    }
+                }
+                if e.is_file() {
+                    paths.retain(|f| {
+                        f.as_path().canonicalize().unwrap() != e.canonicalize().unwrap()
+                    });
+                }
+            }
+        }
+        None => {
+            for entry in WalkDir::new(directory)
+                .max_depth(depth)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                if entry.file_type().is_file() {
+                    paths.push(entry.into_path());
+                }
+            }
         }
     }
 
     Ok(paths)
 }
 
-pub fn directories(directory: &Path, depth: usize) -> Result<Vec<PathBuf>> {
+pub fn directories(
+    directory: &Path,
+    depth: usize,
+    exclude: Option<&Path>,
+) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
 
-    for entry in WalkDir::new(directory)
-        .max_depth(depth)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if entry.file_type().is_dir() {
-            paths.push(entry.into_path());
+    match exclude {
+        Some(e) => {
+            if e.is_dir() {
+                for entry in WalkDir::new(directory)
+                    .max_depth(depth)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                {
+                    if entry.file_type().is_dir()
+                        && !entry
+                            .path()
+                            .canonicalize()
+                            .unwrap()
+                            .starts_with(e.canonicalize().unwrap())
+                    {
+                        paths.push(entry.into_path());
+                    }
+                }
+            } else {
+                for entry in WalkDir::new(directory)
+                    .max_depth(depth)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                {
+                    if entry.file_type().is_dir() {
+                        paths.push(entry.into_path());
+                    }
+                }
+            }
+        }
+        None => {
+            for entry in WalkDir::new(directory)
+                .max_depth(depth)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
+                if entry.file_type().is_dir() {
+                    paths.push(entry.into_path());
+                }
+            }
         }
     }
 
@@ -192,7 +271,13 @@ fn dir_base(abs_path: &Path) -> Option<DirBase> {
 }
 
 fn is_hidden_unix(path: &Path) -> bool {
-    path.file_name().unwrap().to_str().unwrap().starts_with('.')
+    match path.file_name() {
+        Some(n) => match n.to_str() {
+            Some(s) => s.starts_with('.'),
+            None => false,
+        },
+        None => false,
+    }
 }
 
 #[cfg(windows)]

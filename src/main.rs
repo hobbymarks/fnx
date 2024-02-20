@@ -50,10 +50,11 @@ fn main() -> Result<()> {
 
     //process fdn
     let input_path = Path::new(&args.file_path);
-
+    let e_arg = args.exclude_path.clone();
+    let exclude = e_arg.as_ref().map(|s| s.as_ref());
     if args.filetype == "f" {
         let files = match input_path.is_dir() {
-            true => regular_files(input_path, args.max_depth).unwrap(),
+            true => regular_files(input_path, args.max_depth, exclude).unwrap(),
             false => vec![PathBuf::from(input_path)],
         };
 
@@ -64,7 +65,7 @@ fn main() -> Result<()> {
         }
     } else if args.filetype == "d" {
         let files = match input_path.is_dir() {
-            true => directories(input_path, args.max_depth).unwrap(),
+            true => directories(input_path, args.max_depth, exclude).unwrap(),
             false => panic!("input path not match filetype"),
         };
 
