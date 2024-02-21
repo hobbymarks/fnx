@@ -273,17 +273,26 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
 
     let mut base_name = dir_base.base.to_owned();
 
-    //split to stem and extension
-    let mut f_stem = Path::new(&base_name)
-        .file_stem()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_owned();
-    let f_ext = Path::new(&base_name)
-        .extension()
-        .and_then(OsStr::to_str)
-        .unwrap_or("");
+    let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
+
+    let mut f_stem = "".to_owned();
+    let mut f_ext = "";
+
+    if s_path.is_file() {
+        //split to stem and extension
+        f_stem = Path::new(&base_name)
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        f_ext = Path::new(&base_name)
+            .extension()
+            .and_then(OsStr::to_str)
+            .unwrap_or("");
+    } else {
+        f_stem = Path::new(&base_name).to_str().unwrap().to_owned();
+    }
 
     //replace to sep words
     let to_sep_words = retrieve_to_sep_words(&conn)?;
@@ -298,9 +307,8 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         }
         if old_f_stem.eq(&f_stem) {
             break;
-        } else {
-            old_f_stem = f_stem.clone();
         }
+        old_f_stem = f_stem.clone();
     }
 
     //term words
@@ -316,9 +324,8 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
         }
         if old_f_stem.eq(&f_stem) {
             break;
-        } else {
-            old_f_stem = f_stem.clone();
         }
+        old_f_stem = f_stem.clone();
     }
 
     //remove continuous
@@ -334,7 +341,7 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
 
     //take effect
     if base_name != dir_base.base && in_place {
-        let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
+        // let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
         let t_path = Path::new(&dir_base.dir).join(base_name.clone());
         fs::rename(s_path, t_path)?;
         let rd = Record::new(&dir_base.clone().base, &base_name);
