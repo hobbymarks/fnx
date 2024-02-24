@@ -78,5 +78,42 @@ pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
         }
     }
 
+    let noesc_origin = noesc(&c_origin);
+    let noesc_edit = noesc(&c_edit);
+    trace!("TailSam\n{:?}\n{:?}", noesc_origin, noesc_edit);
+
+    //alignment origin and edited length by fill with EMPTY_BOX
+    if mode == "a" {
+        match noesc_origin.width().cmp(&noesc_edit.width()) {
+            std::cmp::Ordering::Less => {
+                let fill = EMPTY_BOX.repeat(noesc_edit.width() - noesc_origin.width());
+                c_origin.push_str(&GRAY.paint(fill).to_string());
+            }
+            std::cmp::Ordering::Equal => {}
+            std::cmp::Ordering::Greater => {
+                let dif_len = noesc_origin.width() - noesc_edit.width();
+
+                let fill = EMPTY_BOX.repeat(dif_len);
+                c_edit.push_str(&GRAY.paint(fill).to_string());
+            }
+        }
+    }
+
     (c_origin, c_edit)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::s_compare;
+
+    #[test]
+    fn test_s_compare() {
+        let origin = "A B C";
+        let origin_a = "A\u{1b}[31m▯\u{1b}[0mB\u{1b}[31m▯\u{1b}[0mC";
+        let edit = "A_B_C";
+        let edit_a = "A\u{1b}[32m_\u{1b}[0mB\u{1b}[32m_\u{1b}[0mC";
+        let (o_r, e_r) = s_compare(origin, edit, "a");
+        assert_eq!(origin_a, o_r);
+        assert_eq!(edit_a, e_r);
+    }
 }
