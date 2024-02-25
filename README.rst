@@ -44,27 +44,23 @@ Usage/参数
 ::
 
 Usage:
- | fdn [flags]
- | fdn [command]
+   fdn [OPTIONS] [COMMAND]
 
-Available Commands:
- | completion  Generate the autocompletion script for the specified shell
- | config      config fdn
- | help        Help about any command
+Commands:
+   config  Config pattern
+   help    Print this message or the help of the given subcommand(s)
 
-Flags:
- | -c, --confirm            Confirm
- | -d, --directory          If enable,directory only.Default regular file only
- | -f, --fullpath           FullPath
- | -h, --help               help for fdn
- | -i, --inplace            In-place
- | -l, --level int          Maxdepth level (default 1)
- | -o, --overwrite          Overwrite
- | -p, --path stringArray   Input paths (default [.])
- | -s, --plainstyle         PlainStyle Output
- | -e, --pretty             Pretty Display
- | -r, --reverse            Reverse
- | -v, --version            version for fdn
+Options:
+   -f, --file-path <FILE_PATH>        file path [default: .]
+   -i, --in-place                     in place
+   -d, --max-depth <MAX_DEPTH>        max depth [default: 1]
+   -t, --filetype <FILETYPE>          file type,'f' for regular file and 'd' for directory [default: f]
+   -I, --not-ignore-hidden            not ignore hidden file
+   -X, --exclude-path <EXCLUDE_PATH>  exclude file or directory
+   -r, --reverse                      reverse change
+   -a, --align                        align origin and edited
+   -V, --version                      print version
+   -h, --help                         Print help
 
 Use "fdn [command] --help" for more information about a command.
 
