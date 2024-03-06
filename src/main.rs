@@ -49,7 +49,10 @@ fn main() -> Result<()> {
     }
 
     //process fdn
-    let input_path = Path::new(&args.file_path);
+    let input_path = match args.file {
+        Some(ref v) => Path::new(v),
+        None => Path::new(&args.file_path),
+    };
     let e_arg = args.exclude_path.clone();
     let exs = e_arg.iter().map(Path::new).collect();
 

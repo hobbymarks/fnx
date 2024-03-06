@@ -23,6 +23,10 @@ pub mod utils;
 #[command(author,about="File and Directory Names",long_about=None)]
 pub struct Args {
     ///file path
+    #[arg(required = false)]
+    pub file: Option<String>,
+
+    ///file path
     #[arg(short = 'f', long, default_value = ".")]
     pub file_path: String,
 
