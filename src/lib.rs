@@ -142,10 +142,6 @@ impl Record {
             count: 1,
         }
     }
-
-    // pub fn pre_name(self, current: &str) -> Result<String> {
-    //     decrypted(&self.encrypted_pre_name, current)
-    // }
 }
 
 ///return absolute paths
@@ -294,24 +290,21 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
             Path::new(&dir_base.dir).join(tn)
         }
         None => {
-            let mut f_stem = "".to_owned();
-            let mut f_ext = "";
-
-            if s_path.is_file() {
-                //split to stem and extension
-                f_stem = Path::new(&base_name)
-                    .file_stem()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_owned();
-                f_ext = Path::new(&base_name)
-                    .extension()
-                    .and_then(OsStr::to_str)
-                    .unwrap_or("");
-            } else {
-                f_stem = Path::new(&base_name).to_str().unwrap().to_owned();
-            }
+            let (mut f_stem, f_ext) = match s_path.is_file() {
+                true => (
+                    Path::new(&base_name)
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_owned(),
+                    Path::new(&base_name)
+                        .extension()
+                        .and_then(OsStr::to_str)
+                        .unwrap_or(""),
+                ),
+                false => (Path::new(&base_name).to_str().unwrap().to_owned(), ""),
+            };
 
             //replace to sep words
             let to_sep_words = retrieve_to_sep_words(&conn)?;
@@ -363,8 +356,6 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
 
     //take effect
     if base_name != dir_base.base && in_place {
-        // let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
-        // let t_path = Path::new(&dir_base.dir).join(base_name.clone());
         fs::rename(s_path, t_path)?;
         let rd = Record::new(&dir_base.clone().base, &base_name);
         insert_record(&conn, rd)?;
@@ -471,26 +462,48 @@ pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
     Ok(())
 }
 
+fn list_separator(conn: &Connection) -> Result<()> {
+    let mut rlts = retrieve_separators(conn)?;
+    let s = "Separator";
+    println!("{} ID\tValue", s);
+    rlts.sort_by_key(|sep| sep.id);
+    for sep in rlts {
+        println!("{} {}\t{}", " ".repeat(s.len()), sep.id, sep.value);
+    }
+    Ok(())
+}
+
 fn list_to_sep_words(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_to_sep_words(conn)?;
-    println!("ID\tValue");
+    let s = "ToSepWord";
+    println!("{} ID\tValue", s);
     rlts.sort_by_key(|tsw| tsw.id);
     for tsw in rlts {
-        println!("{}\t{}", tsw.id, tsw.value);
+        println!("{} {}\t{}", " ".repeat(s.len()), tsw.id, tsw.value);
     }
     Ok(())
 }
+
 fn list_term_words(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_term_words(conn)?;
-    println!("ID\tKey\tValue");
+    let s = "TermWord";
+    println!("{} ID\tKey\tValue", s);
     rlts.sort_by_key(|tw| tw.id);
     for tw in rlts {
-        println!("{}\t{}\t{}", tw.id, tw.key, tw.value);
+        println!(
+            "{} {}\t{}\t{}",
+            " ".repeat(s.len()),
+            tw.id,
+            tw.key,
+            tw.value
+        );
     }
     Ok(())
 }
+
 pub fn config_list() -> Result<()> {
     let conn = open_db(None)?;
+    list_separator(&conn)?;
     list_to_sep_words(&conn)?;
     list_term_words(&conn)?;
 

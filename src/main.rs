@@ -67,7 +67,7 @@ fn main() -> Result<()> {
                     let tns = vec![inputs[1].clone()];
                     fdn_fs_post(sfs, tns, args)?;
                 } else {
-                    return Err(anyhow!("All paths must exist:{:?}", sfs));
+                    return Err(anyhow!("The paths not exist:{:?}", sfs));
                 }
 
                 return Ok(());
