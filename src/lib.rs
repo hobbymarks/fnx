@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{ArgAction, Parser, Subcommand};
 use regex::Regex;
 use rusqlite::Connection;
@@ -10,6 +10,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+
 use utils::{
     db::{insert_term_word, retrieve_records, retrieve_separators, retrieve_to_sep_words},
     decrypted, delete_records, delete_term_word, delete_to_sep_word, encrypted, hashed_name,
@@ -82,6 +83,13 @@ pub enum Commands {
         #[arg(short = 'd', long)]
         delete: Option<String>,
     },
+
+    ///Change file name directly
+    Mv {
+        ///Input source file path and target file name
+        #[clap(required = true)]
+        inputs: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -140,6 +148,7 @@ impl Record {
     // }
 }
 
+///return absolute paths
 pub fn regular_files(
     directory: &Path,
     depth: usize,
@@ -263,7 +272,7 @@ fn remove_prefix_sep_suffix_sep<'a>(s: &'a str, sep: &'a str) -> &'a str {
     s.strip_suffix(&sep).unwrap_or(s)
 }
 
-fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
+fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<String> {
     let conn = open_db(None).unwrap();
 
     let sep = retrieve_separators(&conn)?;
@@ -279,74 +288,83 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
 
     let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
 
-    let mut f_stem = "".to_owned();
-    let mut f_ext = "";
-
-    if s_path.is_file() {
-        //split to stem and extension
-        f_stem = Path::new(&base_name)
-            .file_stem()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned();
-        f_ext = Path::new(&base_name)
-            .extension()
-            .and_then(OsStr::to_str)
-            .unwrap_or("");
-    } else {
-        f_stem = Path::new(&base_name).to_str().unwrap().to_owned();
-    }
-
-    //replace to sep words
-    let to_sep_words = retrieve_to_sep_words(&conn)?;
-    let replacements_map: HashMap<_, _> = to_sep_words
-        .iter()
-        .map(|e| (e.value.clone(), sep.clone()))
-        .collect();
-    let mut old_f_stem = f_stem.clone();
-    loop {
-        for (k, v) in &replacements_map {
-            f_stem = f_stem.replace(k, v);
+    let t_path = match target {
+        Some(tn) => {
+            base_name = tn.clone();
+            Path::new(&dir_base.dir).join(tn)
         }
-        if old_f_stem.eq(&f_stem) {
-            break;
+        None => {
+            let mut f_stem = "".to_owned();
+            let mut f_ext = "";
+
+            if s_path.is_file() {
+                //split to stem and extension
+                f_stem = Path::new(&base_name)
+                    .file_stem()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_owned();
+                f_ext = Path::new(&base_name)
+                    .extension()
+                    .and_then(OsStr::to_str)
+                    .unwrap_or("");
+            } else {
+                f_stem = Path::new(&base_name).to_str().unwrap().to_owned();
+            }
+
+            //replace to sep words
+            let to_sep_words = retrieve_to_sep_words(&conn)?;
+            let replacements_map: HashMap<_, _> = to_sep_words
+                .iter()
+                .map(|e| (e.value.clone(), sep.clone()))
+                .collect();
+            let mut old_f_stem = f_stem.clone();
+            loop {
+                for (k, v) in &replacements_map {
+                    f_stem = f_stem.replace(k, v);
+                }
+                if old_f_stem.eq(&f_stem) {
+                    break;
+                }
+                old_f_stem = f_stem.clone();
+            }
+
+            //term words
+            let term_words = retrieve_term_words(&conn)?;
+            let replacements_map: HashMap<_, _> = term_words
+                .iter()
+                .map(|e| (e.key.clone(), e.value.clone()))
+                .collect();
+            let mut old_f_stem = f_stem.clone();
+            loop {
+                for (k, v) in &replacements_map {
+                    f_stem = f_stem.replace(k, v);
+                }
+                if old_f_stem.eq(&f_stem) {
+                    break;
+                }
+                old_f_stem = f_stem.clone();
+            }
+
+            //remove continuous
+            f_stem = remove_continuous(&f_stem, &sep);
+
+            //remove prefix and suffix sep
+            f_stem = remove_prefix_sep_suffix_sep(&f_stem, &sep).to_owned();
+
+            base_name = match f_ext.is_empty() {
+                true => f_stem.to_owned(),
+                false => format!("{}.{}", f_stem, f_ext),
+            };
+            Path::new(&dir_base.dir).join(base_name.clone())
         }
-        old_f_stem = f_stem.clone();
-    }
-
-    //term words
-    let term_words = retrieve_term_words(&conn)?;
-    let replacements_map: HashMap<_, _> = term_words
-        .iter()
-        .map(|e| (e.key.clone(), e.value.clone()))
-        .collect();
-    let mut old_f_stem = f_stem.clone();
-    loop {
-        for (k, v) in &replacements_map {
-            f_stem = f_stem.replace(k, v);
-        }
-        if old_f_stem.eq(&f_stem) {
-            break;
-        }
-        old_f_stem = f_stem.clone();
-    }
-
-    //remove continuous
-    f_stem = remove_continuous(&f_stem, &sep);
-
-    //remove prefix and suffix sep
-    f_stem = remove_prefix_sep_suffix_sep(&f_stem, &sep).to_owned();
-
-    base_name = match f_ext.is_empty() {
-        true => f_stem.to_owned(),
-        false => format!("{}.{}", f_stem, f_ext),
     };
 
     //take effect
     if base_name != dir_base.base && in_place {
         // let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
-        let t_path = Path::new(&dir_base.dir).join(base_name.clone());
+        // let t_path = Path::new(&dir_base.dir).join(base_name.clone());
         fs::rename(s_path, t_path)?;
         let rd = Record::new(&dir_base.clone().base, &base_name);
         insert_record(&conn, rd)?;
@@ -355,13 +373,27 @@ fn fdn_f(dir_base: &DirBase, in_place: bool) -> Result<String> {
     Ok(base_name)
 }
 
-pub fn fdn_fs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
-    for f in files {
-        if !args.not_ignore_hidden && is_hidden(&f) {
+pub fn fdn_fs_post(origins: Vec<PathBuf>, targets: Vec<String>, args: Args) -> Result<()> {
+    let mut tgts: Vec<Option<String>> = vec![None];
+
+    if targets.is_empty() {
+        tgts.resize(origins.len(), None);
+    } else if origins.len() != targets.len() {
+        return Err(anyhow!(
+            "origins length {:?} must equal to targets length {:?}",
+            origins.len(),
+            targets.len()
+        ));
+    } else {
+        tgts = targets.into_iter().map(Some).collect();
+    }
+
+    for (of, tn) in origins.iter().zip(tgts.iter()) {
+        if is_hidden(of) && !args.not_ignore_hidden {
             continue;
         }
-        if let Some(d_b) = dir_base(&f) {
-            let rlt = fdn_f(&d_b, args.in_place)?;
+        if let Some(d_b) = dir_base(of) {
+            let rlt = fdn_f(&d_b, tn.clone(), args.in_place)?;
 
             let (o_r, e_r) = match args.align {
                 true => s_compare(&d_b.base, &rlt, "a"),

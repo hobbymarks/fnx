@@ -1,6 +1,10 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
-use std::path::{Path, PathBuf};
+use std::{
+    cmp::Ordering,
+    path::{Path, PathBuf},
+};
+use tracing::warn;
 
 use fdn::{
     config_add, config_delete, config_list, directories, fdn_fs_post, fdn_rfs_post, regular_files,
@@ -8,6 +12,8 @@ use fdn::{
 };
 
 fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+
     let args = Args::parse();
 
     //process version
@@ -45,6 +51,27 @@ fn main() -> Result<()> {
                     return Ok(());
                 }
             }
+            Commands::Mv { inputs } => {
+                match inputs.len().cmp(&2) {
+                    Ordering::Less => {
+                        return Err(anyhow!("At least two arguments are required:{:?}", inputs));
+                    }
+                    Ordering::Equal => {}
+                    Ordering::Greater => {
+                        warn!("Only the first two arguments are valid.")
+                    }
+                }
+
+                let sfs = vec![PathBuf::from(inputs[0].clone())];
+                if sfs.iter().all(|f| f.is_dir() || f.is_file()) {
+                    let tns = vec![inputs[1].clone()];
+                    fdn_fs_post(sfs, tns, args)?;
+                } else {
+                    return Err(anyhow!("All paths must exist:{:?}", sfs));
+                }
+
+                return Ok(());
+            }
         }
     }
 
@@ -65,7 +92,7 @@ fn main() -> Result<()> {
         if args.reverse {
             fdn_rfs_post(files, args)?;
         } else {
-            fdn_fs_post(files, args)?;
+            fdn_fs_post(files, Vec::new(), args)?;
         }
     } else if args.filetype == "d" {
         let files = match input_path.is_dir() {
@@ -76,7 +103,7 @@ fn main() -> Result<()> {
         if args.reverse {
             fdn_rfs_post(files, args)?;
         } else {
-            fdn_fs_post(files, args)?;
+            fdn_fs_post(files, Vec::new(), args)?;
         }
     }
 

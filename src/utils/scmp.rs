@@ -3,8 +3,8 @@ use ansi_term::{
     Color::{Green, Red, RGB},
 };
 use difference::{Changeset, Difference};
-use log::trace;
 use regex::Regex;
+use tracing::trace;
 use unicode_width::UnicodeWidthStr;
 
 const SPACE_BOX: &str = "▯";
