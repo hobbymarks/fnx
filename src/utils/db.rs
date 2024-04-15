@@ -13,7 +13,7 @@ const TOBE_SEP_S: [&str; 24] = [
 ];
 
 //////////separators
-//Create separators table
+///Create separators table via database connection
 pub fn create_separators_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS separators (
@@ -27,13 +27,13 @@ pub fn create_separators_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-//Create from separators
+///Create from separators via database connection
 pub fn insert_separator(conn: &Connection, sep: &str) -> Result<()> {
     conn.execute("INSERT INTO separators (value) VALUES (?1)", params![sep])?;
     Ok(())
 }
 
-//Retrieve from separators
+///Retrieve from separators via database connection
 pub fn retrieve_separators(conn: &Connection) -> Result<Vec<Separator>> {
     let mut stmt = conn.prepare("SELECT id,value FROM separators")?;
     let rows = stmt.query_map(params![], |row| Ok((row.get(0)?, row.get(1)?)))?;
@@ -47,7 +47,7 @@ pub fn retrieve_separators(conn: &Connection) -> Result<Vec<Separator>> {
     Ok(results)
 }
 
-//Update from separators
+///Update from separators via database connection
 pub fn update_separator(conn: &Connection, id: i32, new_value: &str) -> Result<()> {
     conn.execute(
         "UPDATE separators SET value = ?1 WHERE id = ?2",
@@ -57,7 +57,7 @@ pub fn update_separator(conn: &Connection, id: i32, new_value: &str) -> Result<(
     Ok(())
 }
 
-//Delete from separators
+///Delete from separators via database connection
 pub fn delete_separator(conn: &Connection, id: i32) -> Result<()> {
     conn.execute("DELETE FROM separators WHERE id = ?", params![id])?;
 
@@ -65,7 +65,7 @@ pub fn delete_separator(conn: &Connection, id: i32) -> Result<()> {
 }
 
 //////////to_sep_words
-//Create to_sep_words table
+///Create to_sep_words table via database connection
 pub fn create_to_sep_words_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS to_sep_words (
@@ -79,7 +79,7 @@ pub fn create_to_sep_words_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-//Create from to_sep_words
+///Create from to_sep_words via database connection
 pub fn insert_to_sep_word(conn: &Connection, word: &str) -> Result<()> {
     conn.execute(
         "INSERT INTO to_sep_words (value) VALUES (?1)",
@@ -88,7 +88,7 @@ pub fn insert_to_sep_word(conn: &Connection, word: &str) -> Result<()> {
     Ok(())
 }
 
-//Retrieve from to_sep_words
+///Retrieve from to_sep_words via database connection
 pub fn retrieve_to_sep_words(conn: &Connection) -> Result<Vec<ToSepWord>> {
     let mut stmt = conn.prepare("SELECT id,value FROM to_sep_words")?;
     let rows = stmt.query_map(params![], |row| Ok((row.get(0)?, row.get(1)?)))?;
@@ -102,7 +102,7 @@ pub fn retrieve_to_sep_words(conn: &Connection) -> Result<Vec<ToSepWord>> {
     Ok(results)
 }
 
-//Update from to_sep_words
+///Update from to_sep_words via database connection
 pub fn update_to_sep_word(conn: &Connection, id: i32, new_value: &str) -> Result<()> {
     conn.execute(
         "UPDATE to_sep_words SET value = ?1 WHERE id = ?2",
@@ -112,7 +112,7 @@ pub fn update_to_sep_word(conn: &Connection, id: i32, new_value: &str) -> Result
     Ok(())
 }
 
-//Delete from to_sep_words
+///Delete from to_sep_words via database connection
 pub fn delete_to_sep_word(conn: &Connection, id: i32) -> Result<()> {
     conn.execute("DELETE FROM to_sep_words WHERE id = ?", params![id])?;
 
@@ -120,7 +120,7 @@ pub fn delete_to_sep_word(conn: &Connection, id: i32) -> Result<()> {
 }
 
 //////////term_words
-//Create term_words table
+///Create term_words table via database connection
 pub fn create_term_words_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS term_words (
@@ -135,7 +135,7 @@ pub fn create_term_words_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-//Insert into term_words
+///Insert into term_words via database connection
 pub fn insert_term_word(conn: &Connection, key: &str, value: &str) -> Result<()> {
     conn.execute(
         "INSERT INTO term_words (key,value) VALUES (?1,?2)",
@@ -144,7 +144,7 @@ pub fn insert_term_word(conn: &Connection, key: &str, value: &str) -> Result<()>
     Ok(())
 }
 
-//Retrieve from term_words
+///Retrieve from term_words via database connection
 pub fn retrieve_term_words(conn: &Connection) -> Result<Vec<TermWord>> {
     let mut stmt = conn.prepare("SELECT id,key,value FROM term_words")?;
     let rows = stmt.query_map(params![], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
@@ -158,7 +158,7 @@ pub fn retrieve_term_words(conn: &Connection) -> Result<Vec<TermWord>> {
     Ok(results)
 }
 
-//Update from term_words
+///Update from term_words via database connection
 pub fn update_term_word(conn: &Connection, id: i32, new_value: &str) -> Result<()> {
     conn.execute(
         "UPDATE term_words SET value = ?1 WHERE id = ?2",
@@ -168,7 +168,7 @@ pub fn update_term_word(conn: &Connection, id: i32, new_value: &str) -> Result<(
     Ok(())
 }
 
-//Delete from term_words
+///Delete from term_words via database connection
 pub fn delete_term_word(conn: &Connection, id: i32) -> Result<()> {
     conn.execute("DELETE FROM term_words WHERE id = ?", params![id])?;
 
@@ -176,7 +176,7 @@ pub fn delete_term_word(conn: &Connection, id: i32) -> Result<()> {
 }
 
 //////////records
-//Create records table
+///Create records table via database connection
 pub fn create_records_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS records (
@@ -192,14 +192,14 @@ pub fn create_records_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-//Create from records
+///Create from records via database connection
 pub fn insert_record(conn: &Connection, record: Record) -> Result<()> {
     conn.execute("INSERT INTO records (hashed_current_name, encrypted_previous_name, count) VALUES (?1, ?2, ?3)", params![record.hashed_current_name,record.encrypted_pre_name,record.count])?;
 
     Ok(())
 }
 
-//Retrieve from records
+///Retrieve from records via database connection
 pub fn retrieve_records(conn: &Connection) -> Result<Vec<Record>> {
     let mut stmt =
         conn.prepare("SELECT id,hashed_current_name,encrypted_previous_name,count FROM records")?;
@@ -221,7 +221,7 @@ pub fn retrieve_records(conn: &Connection) -> Result<Vec<Record>> {
     Ok(results)
 }
 
-//Update from records
+///Update from records via database connection
 pub fn update_records(conn: &Connection, id: i32, origin: &str, target: &str) -> Result<()> {
     conn.execute(
         "UPDATE records SET encrypted_previous_name = ?1, hashed_current_name = ?2 WHERE id = ?3",
@@ -231,7 +231,7 @@ pub fn update_records(conn: &Connection, id: i32, origin: &str, target: &str) ->
     Ok(())
 }
 
-//Delete from records
+///Delete from records via database connection
 pub fn delete_records(conn: &Connection, id: i32) -> Result<()> {
     conn.execute("DELETE FROM records WHERE id = ?", params![id])?;
 
@@ -250,6 +250,7 @@ fn table_exists(conn: &Connection, name: &str) -> Result<bool> {
     Ok(exists)
 }
 
+///Open database and return database connection via Result
 pub fn open_db(db_path: Option<&str>) -> Result<Connection> {
     let mut t_c_map: HashMap<String, fn(&Connection) -> Result<()>> = HashMap::new();
     t_c_map.insert(String::from("separators"), create_separators_table);

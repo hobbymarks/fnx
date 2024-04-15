@@ -14,7 +14,7 @@ use std::{
 use utils::{
     db::{insert_term_word, retrieve_records, retrieve_separators, retrieve_to_sep_words},
     decrypted, delete_records, delete_term_word, delete_to_sep_word, encrypted, hashed_name,
-    insert_record, insert_to_sep_word, open_db, s_compare,
+    insert_record, insert_to_sep_word, open_db, retrieve_term_words, s_compare,
 };
 use walkdir::WalkDir;
 
@@ -144,7 +144,7 @@ impl Record {
     }
 }
 
-///return absolute paths
+///Return absolute paths
 pub fn regular_files(
     directory: &Path,
     depth: usize,
@@ -174,6 +174,7 @@ pub fn regular_files(
     Ok(paths)
 }
 
+///Return directories
 pub fn directories(directory: &Path, depth: usize, excludes: Vec<&Path>) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
 
@@ -208,7 +209,7 @@ pub fn directories(directory: &Path, depth: usize, excludes: Vec<&Path>) -> Resu
     Ok(paths)
 }
 
-///dir_base function create DirBase struct from abs_path
+///Create DirBase struct from abs_path
 fn dir_base(abs_path: &Path) -> Option<DirBase> {
     if let Some(base_name) = abs_path.file_name() {
         if let Some(dir_path) = abs_path.parent() {
@@ -222,6 +223,8 @@ fn dir_base(abs_path: &Path) -> Option<DirBase> {
     None
 }
 
+///Check a unix path is hidden or not
+#[cfg(unix)]
 fn is_hidden_unix(path: &Path) -> bool {
     match path.file_name() {
         Some(n) => match n.to_str() {
@@ -237,8 +240,7 @@ use std::os::windows::fs::MetadataExt;
 #[cfg(windows)]
 use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
 
-use crate::utils::retrieve_term_words;
-
+///Check a windows path is hidden or not
 #[cfg(windows)]
 fn is_hidden_windows(path: &Path) -> bool {
     match path.metadata() {
@@ -247,6 +249,7 @@ fn is_hidden_windows(path: &Path) -> bool {
     }
 }
 
+///Check a path is hidden or not
 fn is_hidden(path: &Path) -> bool {
     #[cfg(unix)]
     {
@@ -258,16 +261,19 @@ fn is_hidden(path: &Path) -> bool {
     }
 }
 
+///Remove continuouse "word" in "source"
 fn remove_continuous(source: &str, word: &str) -> String {
     let re = Regex::new(&format!(r"(?i){}{}+", word, word)).unwrap();
     re.replace_all(source, word).to_string()
 }
 
+///Remove prefix separator and suffix separator
 fn remove_prefix_sep_suffix_sep<'a>(s: &'a str, sep: &'a str) -> &'a str {
     let s = s.strip_prefix(sep).unwrap_or(s);
     s.strip_suffix(&sep).unwrap_or(s)
 }
 
+///Rename a file or directory's name into specific target or by default
 fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<String> {
     let conn = open_db(None).unwrap();
 
@@ -364,6 +370,7 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
     Ok(base_name)
 }
 
+///Firstly rename files or directories's name into targets or by default,then do post-processing work
 pub fn fdn_fs_post(origins: Vec<PathBuf>, targets: Vec<String>, args: Args) -> Result<()> {
     let mut tgts: Vec<Option<String>> = vec![None];
 
@@ -403,6 +410,7 @@ pub fn fdn_fs_post(origins: Vec<PathBuf>, targets: Vec<String>, args: Args) -> R
     Ok(())
 }
 
+///Revertly rename a file or directory's name
 fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
     let conn = open_db(None).unwrap();
 
@@ -437,6 +445,7 @@ fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
     }
 }
 
+///Firstly revertly rename files or directories's name,then do post-processing work
 pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
     for f in files {
         if !args.not_ignore_hidden && is_hidden(&f) {
@@ -473,7 +482,8 @@ fn unames(s: &str) -> String {
     ns
 }
 
-fn list_separator(conn: &Connection) -> Result<()> {
+///list all separators saved in database via database connection
+fn list_separators(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_separators(conn)?;
     let s = "Separator";
     println!("{} ID\tValue\tDescription", s);
@@ -490,6 +500,7 @@ fn list_separator(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+///list all to separator words saved in database via database connection
 fn list_to_sep_words(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_to_sep_words(conn)?;
     let s = "ToSepWord";
@@ -507,6 +518,7 @@ fn list_to_sep_words(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+///list all term words saved in database via database connection
 fn list_term_words(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_term_words(conn)?;
     let s = "TermWord";
@@ -524,15 +536,17 @@ fn list_term_words(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+///List all configurations
 pub fn config_list() -> Result<()> {
     let conn = open_db(None)?;
-    list_separator(&conn)?;
+    list_separators(&conn)?;
     list_to_sep_words(&conn)?;
     list_term_words(&conn)?;
 
     Ok(())
 }
 
+///Add configuration into database
 pub fn config_add(word: &str) -> Result<()> {
     let conn = open_db(None)?;
     match word.split_once(':') {
@@ -549,6 +563,7 @@ pub fn config_add(word: &str) -> Result<()> {
     Ok(())
 }
 
+///Delete configuration in the database
 pub fn config_delete(word: &str) -> Result<()> {
     let conn = open_db(None)?;
     match word.split_once(':') {
