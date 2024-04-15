@@ -462,13 +462,30 @@ pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
     Ok(())
 }
 
+///return unicode names of every character of the string and name separated by "," sign
+fn unames(s: &str) -> String {
+    let ns = s
+        .chars()
+        .filter_map(|c| unicode_names2::name(c).map(|n| n.to_string()))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    ns
+}
+
 fn list_separator(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_separators(conn)?;
     let s = "Separator";
-    println!("{} ID\tValue", s);
+    println!("{} ID\tValue\tDescription", s);
     rlts.sort_by_key(|sep| sep.id);
     for sep in rlts {
-        println!("{} {}\t{}", " ".repeat(s.len()), sep.id, sep.value);
+        println!(
+            "{} {}\t{}\t{}",
+            " ".repeat(s.len()),
+            sep.id,
+            sep.value,
+            unames(&sep.value)
+        );
     }
     Ok(())
 }
@@ -476,10 +493,16 @@ fn list_separator(conn: &Connection) -> Result<()> {
 fn list_to_sep_words(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_to_sep_words(conn)?;
     let s = "ToSepWord";
-    println!("{} ID\tValue", s);
+    println!("{} ID\tValue\tDescription", s);
     rlts.sort_by_key(|tsw| tsw.id);
     for tsw in rlts {
-        println!("{} {}\t{}", " ".repeat(s.len()), tsw.id, tsw.value);
+        println!(
+            "{} {}\t{}\t{}",
+            " ".repeat(s.len()),
+            tsw.id,
+            tsw.value.replace('\r', "\\r").replace('\n', "\\n"),
+            unames(&tsw.value)
+        );
     }
     Ok(())
 }
@@ -495,7 +518,7 @@ fn list_term_words(conn: &Connection) -> Result<()> {
             " ".repeat(s.len()),
             tw.id,
             tw.key,
-            tw.value
+            tw.value.replace('\r', "\\r").replace('\n', "\\n")
         );
     }
     Ok(())
