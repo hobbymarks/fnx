@@ -455,20 +455,33 @@ pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
         if !args.not_ignore_hidden && is_hidden(&f) {
             continue;
         }
-        if let Some(d_b) = dir_base(&f) {
-            if let Ok(Some(rlt)) = fdn_rf(&d_b, args.in_place) {
-                let (o_r, e_r) = match args.align {
-                    true => s_compare(&d_b.base, &rlt, "a"),
-                    false => s_compare(&d_b.base, &rlt, ""),
-                };
-                if !o_r.eq(&e_r) {
-                    if args.in_place {
-                        println!("   {}\n==>{}", o_r, e_r);
-                    } else {
-                        println!("   {}\n-->{}", o_r, e_r);
+
+        let mut frc = Some(f.clone());
+        while let Some(ref f) = frc {
+            if let Some(dir_base) = dir_base(f) {
+                match fdn_rf(&dir_base, args.in_place) {
+                    Ok(Some(rf_base)) => {
+                        if args.reverse_chainly {
+                            frc = Some(Path::new(&dir_base.dir).join(rf_base.clone()));
+                        } else {
+                            frc = None;
+                        }
+                        let (o_r, e_r) = match args.align {
+                            true => s_compare(&dir_base.base, &rf_base, "a"),
+                            false => s_compare(&dir_base.base, &rf_base, ""),
+                        };
+                        if !o_r.eq(&e_r) {
+                            if args.in_place {
+                                println!("   {}\n==>{}", o_r, e_r);
+                            } else {
+                                println!("   {}\n-->{}", o_r, e_r);
+                            }
+                        }
                     }
+                    Ok(None) => break,
+                    Err(err) => return Err(err),
                 }
-            };
+            }
         }
     }
 

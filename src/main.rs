@@ -89,7 +89,7 @@ fn main() -> Result<()> {
             false => vec![PathBuf::from(input_path)],
         };
 
-        if args.reverse {
+        if (args.reverse) || (args.reverse_chainly) {
             fdn_rfs_post(files, args)?;
         } else {
             fdn_fs_post(files, Vec::new(), args)?;
@@ -100,7 +100,7 @@ fn main() -> Result<()> {
             false => panic!("input path not match filetype"),
         };
 
-        if args.reverse {
+        if (args.reverse) || (args.reverse_chainly) {
             fdn_rfs_post(files, args)?;
         } else {
             fdn_fs_post(files, Vec::new(), args)?;
