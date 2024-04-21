@@ -55,6 +55,10 @@ pub struct Args {
     #[arg(short = 'r', long, default_value = "false")]
     pub reverse: bool,
 
+    ///reverse change chainly
+    #[arg(short = 'R', long, default_value = "false")]
+    pub reverse_chainly: bool,
+
     ///align origin and edited
     #[arg(short = 'a', long, default_value = "false")]
     align: bool,
@@ -432,7 +436,7 @@ fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
                 if in_place {
                     let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
                     let t_path = Path::new(&dir_base.dir).join(base_name.clone());
-                    fs::rename(s_path, t_path)?;
+                    fs::rename(s_path, t_path)?; //Only rename successfully then ...
                     if rd.count == 1 {
                         delete_records(&conn, rd.id)?;
                     }
