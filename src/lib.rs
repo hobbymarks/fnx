@@ -398,8 +398,8 @@ pub fn fdn_fs_post(origins: Vec<PathBuf>, targets: Vec<String>, args: Args) -> R
             let rlt = fdn_f(&d_b, tn.clone(), args.in_place)?;
 
             let (o_r, e_r) = match args.align {
-                true => s_compare(&d_b.base, &rlt, "a"),
-                false => s_compare(&d_b.base, &rlt, ""),
+                true => fname_compare(&d_b.base, &rlt, "a"),
+                false => fname_compare(&d_b.base, &rlt, ""),
             };
             if !o_r.eq(&e_r) {
                 if args.in_place {
@@ -467,8 +467,8 @@ pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
                             frc = None;
                         }
                         let (o_r, e_r) = match args.align {
-                            true => s_compare(&dir_base.base, &rf_base, "a"),
-                            false => s_compare(&dir_base.base, &rf_base, ""),
+                            true => fname_compare(&dir_base.base, &rf_base, "a"),
+                            false => fname_compare(&dir_base.base, &rf_base, ""),
                         };
                         if !o_r.eq(&e_r) {
                             if args.in_place {
@@ -603,6 +603,40 @@ pub fn config_delete(word: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+///compare file stem and file extension separately and return rich text
+fn fname_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
+    let (o_stem, o_ext) = stem_ext(origin);
+    let (e_stem, e_ext) = stem_ext(edit);
+
+    let (o_stem_cmp, e_stem_cmp) = s_compare(&o_stem, &e_stem, mode);
+    let (o_ext_cmp, e_ext_cmp) = s_compare(&o_ext, &e_ext, mode);
+
+    (
+        o_stem_cmp + if o_ext.is_empty() { "" } else { "." } + &o_ext_cmp,
+        e_stem_cmp + if e_ext.is_empty() { "" } else { "." } + &e_ext_cmp,
+    )
+}
+
+///return file stem and file extension by file path
+fn stem_ext(path: &str) -> (String, String) {
+    let p = Path::new(path);
+
+    let stem = p
+        .file_stem()
+        .unwrap_or_default()
+        .to_str()
+        .unwrap()
+        .to_string();
+    let ext = p
+        .extension()
+        .unwrap_or_default()
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    (stem, ext)
 }
 
 #[cfg(test)]
