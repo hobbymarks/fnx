@@ -296,7 +296,7 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
 
     let t_path = match target {
         Some(tn) => {
-            base_name = tn.clone();
+            base_name.clone_from(&tn);
             Path::new(&dir_base.dir).join(tn)
         }
         None => {
@@ -330,7 +330,7 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
                 if old_f_stem.eq(&f_stem) {
                     break;
                 }
-                old_f_stem = f_stem.clone();
+                old_f_stem.clone_from(&f_stem);
             }
 
             //term words
@@ -347,14 +347,15 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
                 if old_f_stem.eq(&f_stem) {
                     break;
                 }
-                old_f_stem = f_stem.clone();
+                old_f_stem.clone_from(&f_stem);
             }
 
             //remove continuous
             f_stem = remove_continuous(&f_stem, &sep);
 
             //remove prefix and suffix sep
-            f_stem = remove_prefix_sep_suffix_sep(&f_stem, &sep).to_owned();
+            let rlt = remove_prefix_sep_suffix_sep(&f_stem, &sep).to_owned();
+            f_stem = rlt;
 
             base_name = match f_ext.is_empty() {
                 true => f_stem.to_owned(),
