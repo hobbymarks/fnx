@@ -1,9 +1,8 @@
+use crate::{Record, Separator, TermWord, ToSepWord};
 use anyhow::{anyhow, Result};
 use directories::UserDirs;
 use rusqlite::{params, Connection};
 use std::{collections::HashMap, fs, path::PathBuf};
-
-use crate::{Record, Separator, TermWord, ToSepWord};
 
 const DEFAULT_DB_NAME: &str = "fdn.db";
 const SEP_WORD: &str = "_";
@@ -329,13 +328,18 @@ pub fn open_db(db_path: Option<&str>) -> Result<Connection> {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{open_db, remove_continuous, utils::db::DEFAULT_DB_NAME};
+    use std::fs;
 
     #[test]
     fn test_initial_db() {
+        let exist = fs::metadata(DEFAULT_DB_NAME).is_ok();
         let rlt = open_db(Some(DEFAULT_DB_NAME));
-        assert!(rlt.is_ok())
+        assert!(rlt.is_ok());
+        assert!(fs::metadata(DEFAULT_DB_NAME).is_ok());
+        if !exist {
+            fs::remove_file(DEFAULT_DB_NAME).unwrap();
+        }
     }
 
     #[test]

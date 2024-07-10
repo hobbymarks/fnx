@@ -1,15 +1,14 @@
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use fdn::{
+    config_add, config_delete, config_list, directories, fdn_fs_post, fdn_rfs_post, regular_files,
+    Args, Commands,
+};
 use std::{
     cmp::Ordering,
     path::{Path, PathBuf},
 };
 use tracing::warn;
-
-use fdn::{
-    config_add, config_delete, config_list, directories, fdn_fs_post, fdn_rfs_post, regular_files,
-    Args, Commands,
-};
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
@@ -75,7 +74,7 @@ fn main() -> Result<()> {
         }
     }
 
-    //process fdn
+    //process fdn with no subcommands
     let input_path = match args.file {
         Some(ref v) => Path::new(v),
         None => Path::new(&args.file_path),

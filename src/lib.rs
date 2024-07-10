@@ -10,7 +10,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-
 use utils::{
     db::{insert_term_word, retrieve_records, retrieve_separators, retrieve_to_sep_words},
     decrypted, delete_records, delete_term_word, delete_to_sep_word, encrypted, hashed_name,
