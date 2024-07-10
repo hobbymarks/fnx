@@ -14,20 +14,20 @@ keywords = ["file", "directory", "rollback"]
 
 [dependencies]
 ansi_term = "0.12.1"
-anyhow = "1.0.82"
-clap = { version = "4.5.4", features = ["derive", "env"] }
+anyhow = "1.0.86"
+clap = { version = "4.5.9", features = ["derive", "env"] }
 difference = "2.0.0"
 directories = "5.0.1"
-regex = "1.10.4"
+regex = "1.10.5"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 rust-crypto = "0.2.36"
 rustc-serialize = "0.3.25"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
-unicode-width = "0.1.11"
+unicode-width = "0.1.13"
 unicode_names2 = "1.2.2"
 walkdir = "2.5.0"
 winapi = "0.3.9"
 
 [build-dependencies]
-git2 = "0.18.3"
+git2 = "0.19.0"
