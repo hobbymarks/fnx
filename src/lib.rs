@@ -19,12 +19,12 @@ use walkdir::WalkDir;
 
 pub mod utils;
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Clone)]
 #[command(author,about="File and Directory Names",long_about=None)]
 pub struct Args {
     ///file path
     #[arg(required = false)]
-    pub file: Option<String>,
+    pub files: Option<Vec<String>>,
 
     ///file path
     #[arg(short = 'f', long, default_value = ".")]
@@ -70,7 +70,7 @@ pub struct Args {
     pub command: Option<Commands>,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Clone)]
 pub enum Commands {
     ///Config pattern
     Config {

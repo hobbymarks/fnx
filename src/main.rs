@@ -75,36 +75,40 @@ fn main() -> Result<()> {
     }
 
     //process fdn with no subcommands
-    let input_path = match args.file {
-        Some(ref v) => Path::new(v),
-        None => Path::new(&args.file_path),
+    let input_paths = match args.files {
+        Some(ref vs) => vs.iter().map(Path::new).collect(),
+        None => vec![Path::new(&args.file_path)],
     };
-    let e_arg = args.exclude_path.clone();
-    let exs = e_arg.iter().map(Path::new).collect();
+    // let e_arg = args.exclude_path.clone();
+    let exs: Vec<_> = args.exclude_path.iter().map(Path::new).collect();
 
-    if args.filetype == "f" {
-        let files = match input_path.is_dir() {
-            true => regular_files(input_path, args.max_depth, exs).unwrap(),
-            false => vec![PathBuf::from(input_path)],
-        };
+    input_paths.iter().for_each(|f_path| {
+        let args = args.clone();
 
-        if (args.reverse) || (args.reverse_chainly) {
-            fdn_rfs_post(files, args)?;
-        } else {
-            fdn_fs_post(files, Vec::new(), args)?;
+        if args.filetype == "f" {
+            let files = match f_path.is_dir() {
+                true => regular_files(f_path, args.max_depth, exs.clone()).unwrap(),
+                false => vec![PathBuf::from(f_path)],
+            };
+
+            if (args.reverse) || (args.reverse_chainly) {
+                let _ = fdn_rfs_post(files, args);
+            } else {
+                let _ = fdn_fs_post(files, Vec::new(), args);
+            }
+        } else if args.filetype == "d" {
+            let files = match f_path.is_dir() {
+                true => directories(f_path, args.max_depth, exs.clone()).unwrap(),
+                false => panic!("input path not match filetype"),
+            };
+
+            if (args.reverse) || (args.reverse_chainly) {
+                let _ = fdn_rfs_post(files, args);
+            } else {
+                let _ = fdn_fs_post(files, Vec::new(), args);
+            }
         }
-    } else if args.filetype == "d" {
-        let files = match input_path.is_dir() {
-            true => directories(input_path, args.max_depth, exs).unwrap(),
-            false => panic!("input path not match filetype"),
-        };
-
-        if (args.reverse) || (args.reverse_chainly) {
-            fdn_rfs_post(files, args)?;
-        } else {
-            fdn_fs_post(files, Vec::new(), args)?;
-        }
-    }
+    });
 
     Ok(())
 }
