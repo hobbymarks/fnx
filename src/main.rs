@@ -1,14 +1,16 @@
-use anyhow::{anyhow, Result};
-use clap::Parser;
-use fdn::{
-    config_add, config_delete, config_list, directories, fdn_fs_post, fdn_rfs_post, regular_files,
-    Args, Commands,
-};
 use std::{
     cmp::Ordering,
     path::{Path, PathBuf},
 };
+
+use anyhow::{anyhow, Result};
+use clap::Parser;
 use tracing::warn;
+
+use fdn::{
+    config_add, config_delete, config_list, directories, fdn_fs_post, fdn_rfs_post, regular_files,
+    Args, Commands,
+};
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
@@ -79,7 +81,7 @@ fn main() -> Result<()> {
         Some(ref vs) => vs.iter().map(Path::new).collect(),
         None => vec![Path::new(&args.file_path)],
     };
-    // let e_arg = args.exclude_path.clone();
+
     let exs: Vec<_> = args.exclude_path.iter().map(Path::new).collect();
 
     input_paths.iter().for_each(|f_path| {

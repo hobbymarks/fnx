@@ -7,6 +7,7 @@ use crypto::{
     sha2::Sha256,
 };
 use rustc_serialize::hex::{FromHex, ToHex};
+
 const IV: [u8; 16] = [0; 16];
 
 pub fn hashed_name(s: &str) -> String {

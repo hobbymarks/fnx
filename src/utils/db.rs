@@ -1,8 +1,10 @@
-use crate::{Record, Separator, TermWord, ToSepWord};
+use std::{collections::HashMap, fs, path::PathBuf};
+
 use anyhow::{anyhow, Result};
 use directories::UserDirs;
 use rusqlite::{params, Connection};
-use std::{collections::HashMap, fs, path::PathBuf};
+
+use crate::{Record, Separator, TermWord, ToSepWord};
 
 const DEFAULT_DB_NAME: &str = "fdn.db";
 const SEP_WORD: &str = "_";

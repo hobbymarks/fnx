@@ -1,8 +1,3 @@
-use anyhow::{anyhow, Result};
-use clap::{ArgAction, Parser, Subcommand};
-use regex::Regex;
-use rusqlite::Connection;
-use rustc_serialize::hex::FromHex;
 use std::{
     cmp::Ordering,
     collections::HashMap,
@@ -10,12 +5,19 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+
+use anyhow::{anyhow, Result};
+use clap::{ArgAction, Parser, Subcommand};
+use regex::Regex;
+use rusqlite::Connection;
+use rustc_serialize::hex::FromHex;
+use walkdir::WalkDir;
+
 use utils::{
     db::{insert_term_word, retrieve_records, retrieve_separators, retrieve_to_sep_words},
     decrypted, delete_records, delete_term_word, delete_to_sep_word, encrypted, hashed_name,
     insert_record, insert_to_sep_word, open_db, retrieve_term_words, s_compare,
 };
-use walkdir::WalkDir;
 
 pub mod utils;
 
@@ -148,57 +150,41 @@ impl Record {
 }
 
 ///Return absolute paths
-pub fn regular_files(
-    directory: &Path,
-    depth: usize,
-    excludes: Vec<&Path>,
-) -> Result<Vec<PathBuf>> {
-    let mut paths = Vec::new();
-
-    for entry in WalkDir::new(directory)
+pub fn regular_files(directory: &Path, depth: usize, excludes: Vec<&Path>) -> Result<Vec<PathBuf>> {
+    let mut paths: Vec<_> = WalkDir::new(directory)
         .max_depth(depth)
         .into_iter()
         .filter_map(|e| e.ok())
-    {
-        if entry.file_type().is_file() {
-            paths.push(entry.into_path());
-        }
-    }
+        .filter_map(|entry| {
+            if entry.file_type().is_file() {
+                Some(entry.into_path())
+            } else {
+                None
+            }
+        })
+        .collect();
 
-    for e in excludes {
-        paths.retain(|f| {
-            !f.as_path()
-                .canonicalize()
-                .unwrap()
-                .starts_with(e.canonicalize().unwrap())
-        });
-    }
+    paths.retain(|path| !excludes.iter().any(|exc| path.starts_with(exc)));
 
     Ok(paths)
 }
 
 ///Return directories
 pub fn directories(directory: &Path, depth: usize, excludes: Vec<&Path>) -> Result<Vec<PathBuf>> {
-    let mut paths = Vec::new();
-
-    for entry in WalkDir::new(directory)
+    let mut paths: Vec<_> = WalkDir::new(directory)
         .max_depth(depth)
         .into_iter()
         .filter_map(|e| e.ok())
-    {
-        if entry.file_type().is_dir() {
-            paths.push(entry.into_path());
-        }
-    }
+        .filter_map(|entry| {
+            if entry.file_type().is_dir() {
+                Some(entry.into_path())
+            } else {
+                None
+            }
+        })
+        .collect();
 
-    for e in excludes {
-        paths.retain(|f| {
-            !f.as_path()
-                .canonicalize()
-                .unwrap()
-                .starts_with(e.canonicalize().unwrap())
-        });
-    }
+    paths.retain(|path| !excludes.iter().any(|exc| path.starts_with(exc)));
 
     paths.sort_by(|a, b| {
         let a_str = a.as_os_str();
@@ -214,16 +200,14 @@ pub fn directories(directory: &Path, depth: usize, excludes: Vec<&Path>) -> Resu
 
 ///Create DirBase struct from abs_path
 fn dir_base(abs_path: &Path) -> Option<DirBase> {
-    if let Some(base_name) = abs_path.file_name() {
-        if let Some(dir_path) = abs_path.parent() {
-            return Some(DirBase {
-                dir: dir_path.to_str().unwrap().to_owned(),
-                base: base_name.to_str().unwrap().to_owned(),
-            });
-        }
+    if let (Some(base), Some(dir_path)) = (abs_path.file_name(), abs_path.parent()) {
+        Some(DirBase {
+            dir: dir_path.to_str().unwrap().to_owned(),
+            base: base.to_str().unwrap().to_owned(),
+        })
+    } else {
+        None
     }
-
-    None
 }
 
 ///Check a unix path is hidden or not
@@ -278,7 +262,7 @@ fn remove_prefix_sep_suffix_sep<'a>(s: &'a str, sep: &'a str) -> &'a str {
 
 ///Rename a file or directory's name into specific target or by default
 fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<String> {
-    let conn = open_db(None).unwrap();
+    let conn = open_db(None)?;
 
     let sep = retrieve_separators(&conn)?;
     let sep = {
@@ -323,9 +307,9 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
                 .collect();
             let mut old_f_stem = f_stem.clone();
             loop {
-                for (k, v) in &replacements_map {
+                replacements_map.iter().for_each(|(k, v)| {
                     f_stem = f_stem.replace(k, v);
-                }
+                });
                 if old_f_stem.eq(&f_stem) {
                     break;
                 }
@@ -340,9 +324,9 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
                 .collect();
             let mut old_f_stem = f_stem.clone();
             loop {
-                for (k, v) in &replacements_map {
+                replacements_map.iter().for_each(|(k, v)| {
                     f_stem = f_stem.replace(k, v);
-                }
+                });
                 if old_f_stem.eq(&f_stem) {
                     break;
                 }
@@ -390,36 +374,38 @@ pub fn fdn_fs_post(origins: Vec<PathBuf>, targets: Vec<String>, args: Args) -> R
         tgts = targets.into_iter().map(Some).collect();
     }
 
-    for (of, tn) in origins.iter().zip(tgts.iter()) {
-        if is_hidden(of) && !args.not_ignore_hidden {
-            continue;
-        }
-        if let Some(d_b) = dir_base(of) {
-            let rlt = fdn_f(&d_b, tn.clone(), args.in_place)?;
+    origins
+        .iter()
+        .zip(tgts.iter())
+        .filter(|(of, _tn)| !(is_hidden(of) && args.not_ignore_hidden))
+        .try_for_each(|(of, tn)| -> Result<()> {
+            if let Some(d_b) = dir_base(of) {
+                let rlt = fdn_f(&d_b, tn.clone(), args.in_place)?;
 
-            let (o_r, e_r) = match args.align {
-                true => fname_compare(&d_b.base, &rlt, "a"),
-                false => fname_compare(&d_b.base, &rlt, ""),
-            };
-            if !o_r.eq(&e_r) {
-                if args.in_place {
-                    println!("   {}\n==>{}", o_r, e_r);
-                } else {
-                    println!("   {}\n-->{}", o_r, e_r);
+                let (o_r, e_r) = match args.align {
+                    true => fname_compare(&d_b.base, &rlt, "a"),
+                    false => fname_compare(&d_b.base, &rlt, ""),
+                };
+                if !o_r.eq(&e_r) {
+                    if args.in_place {
+                        println!("   {}\n==>{}", o_r, e_r);
+                    } else {
+                        println!("   {}\n-->{}", o_r, e_r);
+                    }
                 }
             }
-        }
-    }
+            Ok(())
+        })?;
 
     Ok(())
 }
 
 ///Revertly rename a file or directory's name
 fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
-    let conn = open_db(None).unwrap();
+    let conn = open_db(None)?;
 
     let base_name = &dir_base.base;
-    let rds = retrieve_records(&conn).unwrap();
+    let rds = retrieve_records(&conn)?;
 
     let map: HashMap<_, _> = rds
         .iter()
@@ -430,8 +416,8 @@ fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
     match rd {
         Some(rd) => match decrypted(&rd.encrypted_pre_name, base_name) {
             Ok(v) => {
-                let rt = v.from_hex().unwrap();
-                let base_name = String::from_utf8(rt).unwrap();
+                let rt = v.from_hex()?;
+                let base_name = String::from_utf8(rt)?;
                 //take effect
                 if in_place {
                     let s_path = Path::new(&dir_base.dir).join(dir_base.base.clone());
@@ -451,39 +437,40 @@ fn fdn_rf(dir_base: &DirBase, in_place: bool) -> Result<Option<String>> {
 
 ///Firstly revertly rename files or directories's name,then do post-processing work
 pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
-    for f in files {
-        if !args.not_ignore_hidden && is_hidden(&f) {
-            continue;
-        }
-
-        let mut frc = Some(f.clone());
-        while let Some(ref f) = frc {
-            if let Some(dir_base) = dir_base(f) {
-                match fdn_rf(&dir_base, args.in_place) {
-                    Ok(Some(rf_base)) => {
-                        if args.reverse_chainly {
-                            frc = Some(Path::new(&dir_base.dir).join(rf_base.clone()));
-                        } else {
-                            frc = None;
-                        }
-                        let (o_r, e_r) = match args.align {
-                            true => fname_compare(&dir_base.base, &rf_base, "a"),
-                            false => fname_compare(&dir_base.base, &rf_base, ""),
-                        };
-                        if !o_r.eq(&e_r) {
-                            if args.in_place {
-                                println!("   {}\n==>{}", o_r, e_r);
+    files
+        .iter()
+        .filter(|f| args.not_ignore_hidden || !is_hidden(f))
+        .try_for_each(|f| -> Result<()> {
+            let mut frc = Some(f.clone());
+            while let Some(ref f) = frc {
+                if let Some(dir_base) = dir_base(f) {
+                    match fdn_rf(&dir_base, args.in_place) {
+                        Ok(Some(rf_base)) => {
+                            if args.reverse_chainly {
+                                frc = Some(Path::new(&dir_base.dir).join(rf_base.clone()));
                             } else {
-                                println!("   {}\n-->{}", o_r, e_r);
+                                frc = None;
+                            }
+                            let (o_r, e_r) = match args.align {
+                                true => fname_compare(&dir_base.base, &rf_base, "a"),
+                                false => fname_compare(&dir_base.base, &rf_base, ""),
+                            };
+                            if !o_r.eq(&e_r) {
+                                if args.in_place {
+                                    println!("   {}\n==>{}", o_r, e_r);
+                                } else {
+                                    println!("   {}\n-->{}", o_r, e_r);
+                                }
                             }
                         }
+                        Ok(None) => break,
+                        Err(err) => return Err(err),
                     }
-                    Ok(None) => break,
-                    Err(err) => return Err(err),
                 }
             }
-        }
-    }
+
+            Ok(())
+        })?;
 
     Ok(())
 }
@@ -499,13 +486,13 @@ fn unames(s: &str) -> String {
     ns
 }
 
-///list all separators saved in database via database connection
+///list all separators stored in database via database connection
 fn list_separators(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_separators(conn)?;
     let s = "Separator";
     println!("{} ID\tValue\tDescription", s);
     rlts.sort_by_key(|sep| sep.id);
-    for sep in rlts {
+    rlts.iter().for_each(|sep| {
         println!(
             "{} {}\t{}\t{}",
             " ".repeat(s.len()),
@@ -513,17 +500,18 @@ fn list_separators(conn: &Connection) -> Result<()> {
             sep.value,
             unames(&sep.value)
         );
-    }
+    });
+
     Ok(())
 }
 
-///list all to separator words saved in database via database connection
+///list all to separator words stored in database via database connection
 fn list_to_sep_words(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_to_sep_words(conn)?;
     let s = "ToSepWord";
     println!("{} ID\tValue\tDescription", s);
     rlts.sort_by_key(|tsw| tsw.id);
-    for tsw in rlts {
+    rlts.iter().for_each(|tsw| {
         println!(
             "{} {}\t{}\t{}",
             " ".repeat(s.len()),
@@ -531,17 +519,18 @@ fn list_to_sep_words(conn: &Connection) -> Result<()> {
             tsw.value.replace('\r', "\\r").replace('\n', "\\n"),
             unames(&tsw.value)
         );
-    }
+    });
+
     Ok(())
 }
 
-///list all term words saved in database via database connection
+///list all term words stored in database via database connection
 fn list_term_words(conn: &Connection) -> Result<()> {
     let mut rlts = retrieve_term_words(conn)?;
     let s = "TermWord";
     println!("{} ID\tKey\tValue", s);
     rlts.sort_by_key(|tw| tw.id);
-    for tw in rlts {
+    rlts.iter().for_each(|tw| {
         println!(
             "{} {}\t{}\t{}",
             " ".repeat(s.len()),
@@ -549,7 +538,8 @@ fn list_term_words(conn: &Connection) -> Result<()> {
             tw.key,
             tw.value.replace('\r', "\\r").replace('\n', "\\n")
         );
-    }
+    });
+
     Ok(())
 }
 
@@ -620,8 +610,11 @@ fn fname_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
 }
 
 ///return file stem and file extension by file path
-fn stem_ext(path: &str) -> (String, String) {
-    let p = Path::new(path);
+fn stem_ext<P>(path: P) -> (String, String)
+where
+    P: AsRef<Path> + AsRef<OsStr>,
+{
+    let p = Path::new(&path);
 
     let stem = p
         .file_stem()
@@ -641,7 +634,7 @@ fn stem_ext(path: &str) -> (String, String) {
 
 #[cfg(test)]
 mod tests {
-    use crate::remove_prefix_sep_suffix_sep;
+    use crate::{remove_prefix_sep_suffix_sep, stem_ext};
 
     #[test]
     fn test_remove_xfix_sep() {
@@ -651,5 +644,13 @@ mod tests {
         assert!(s.ends_with(sep));
         let t = "PDFScholar";
         assert_eq!(remove_prefix_sep_suffix_sep(s, sep), t);
+    }
+
+    #[test]
+    fn test_stem_ext() {
+        let p = "stem.ext";
+        let (s, e) = stem_ext(p);
+        assert!(s.eq("stem"));
+        assert!(e.eq("ext"));
     }
 }

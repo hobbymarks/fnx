@@ -1,7 +1,6 @@
-use ansi_term::{
-    Color,
-    Color::{Green, Red, RGB},
-};
+use std::cmp::Ordering;
+
+use ansi_term::Color;
 use difference::{Changeset, Difference};
 use regex::Regex;
 use tracing::trace;
@@ -9,7 +8,7 @@ use unicode_width::UnicodeWidthStr;
 
 const SPACE_BOX: &str = "▯";
 const EMPTY_BOX: &str = "␣";
-const GRAY: Color = RGB(128, 128, 128);
+const GRAY: Color = Color::RGB(128, 128, 128);
 
 fn noesc(s: &str) -> String {
     let re = Regex::new(r"\x1B\[([0-9;]+)m").unwrap();
@@ -28,7 +27,7 @@ pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
     let mut c_origin = "".to_string();
     let mut c_edit = "".to_string();
 
-    for diff in changeset.diffs {
+    changeset.diffs.iter().for_each(|diff| {
         match diff {
             Difference::Same(s) => {
                 let s = s.replace(char::is_whitespace, SPACE_BOX);
@@ -40,12 +39,12 @@ pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
                 //alignment origin and edited length by fill with EMPTY_BOX
                 if mode == "a" {
                     match noesc_origin.width().cmp(&noesc_edit.width()) {
-                        std::cmp::Ordering::Less => {
+                        Ordering::Less => {
                             let fill = EMPTY_BOX.repeat(noesc_edit.width() - noesc_origin.width());
                             c_origin.push_str(&GRAY.paint(fill).to_string());
                         }
-                        std::cmp::Ordering::Equal => {}
-                        std::cmp::Ordering::Greater => {
+                        Ordering::Equal => {}
+                        Ordering::Greater => {
                             let dif_len = noesc_origin.width() - noesc_edit.width();
 
                             let fill = EMPTY_BOX.repeat(dif_len);
@@ -63,7 +62,7 @@ pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
                 trace_noesc("Add", &c_origin, &c_edit);
 
                 let s = s.replace(char::is_whitespace, SPACE_BOX);
-                c_edit.push_str(&Green.paint(s).to_string());
+                c_edit.push_str(&Color::Green.paint(s).to_string());
 
                 trace_noesc("", &c_origin, &c_edit);
             }
@@ -71,12 +70,12 @@ pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
                 trace_noesc("Rem", &c_origin, &c_edit);
 
                 let s = s.replace(char::is_whitespace, SPACE_BOX);
-                c_origin.push_str(&Red.paint(s).to_string());
+                c_origin.push_str(&Color::Red.paint(s).to_string());
 
                 trace_noesc("", &c_origin, &c_edit);
             }
         }
-    }
+    });
 
     let noesc_origin = noesc(&c_origin);
     let noesc_edit = noesc(&c_edit);
@@ -85,12 +84,12 @@ pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
     //alignment origin and edited length by fill with EMPTY_BOX
     if mode == "a" {
         match noesc_origin.width().cmp(&noesc_edit.width()) {
-            std::cmp::Ordering::Less => {
+            Ordering::Less => {
                 let fill = EMPTY_BOX.repeat(noesc_edit.width() - noesc_origin.width());
                 c_origin.push_str(&GRAY.paint(fill).to_string());
             }
-            std::cmp::Ordering::Equal => {}
-            std::cmp::Ordering::Greater => {
+            Ordering::Equal => {}
+            Ordering::Greater => {
                 let dif_len = noesc_origin.width() - noesc_edit.width();
 
                 let fill = EMPTY_BOX.repeat(dif_len);
