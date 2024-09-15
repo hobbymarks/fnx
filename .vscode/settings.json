@@ -8,10 +8,11 @@
   "editor.formatOnSave": true,
   "editor.matchBrackets": "always",
   "editor.rulers": [
-    99,
-    100
+    100,
+    102
   ],
-  "editor.wordWrap": "on",
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 100,
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
   "rust-analyzer.cargo.buildScripts.overrideCommand": [
@@ -32,9 +33,11 @@
     "--all-targets",
     "--all-features"
   ],
+  "rust-analyzer.imports.granularity.group": "crate",
+  "rust-analyzer.imports.group.enable": true,
   "rust-analyzer.rustfmt.extraArgs": [
     "--config",
-    "max_width=99"
+    "max_width=100"
   ],
   "rust-analyzer.showUnlinkedFileNotification": false,
   "terminal.integrated.cursorBlinking": true,
