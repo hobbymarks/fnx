@@ -63,7 +63,7 @@ pub fn encrypted(plain: &str, key_plain: &str) -> Result<String> {
     loop {
         let result = encryptor
             .encrypt(&mut read_buffer, &mut write_buffer, true)
-            .unwrap();
+            .map_err(|e| anyhow!("Encryption failed: {:?}", e))?;
 
         final_result.extend(
             write_buffer
@@ -93,16 +93,15 @@ pub fn decrypted(encrypted: &str, key_plain: &str) -> Result<String> {
     );
 
     let mut final_result = Vec::<u8>::new();
-    let enc = encrypted.from_hex().unwrap();
+    let enc = encrypted.from_hex()?;
     let mut read_buffer = buffer::RefReadBuffer::new(&enc);
     let mut buffer = [0; 4096];
     let mut write_buffer = buffer::RefWriteBuffer::new(&mut buffer);
 
     loop {
-        let result = match decryptor.decrypt(&mut read_buffer, &mut write_buffer, true) {
-            Ok(v) => v,
-            Err(err) => return Err(anyhow!("{:?}", err)),
-        };
+        let result = decryptor
+            .decrypt(&mut read_buffer, &mut write_buffer, true)
+            .map_err(|e| anyhow!("Decryption failed: {:?}", e))?;
 
         final_result.extend(
             write_buffer

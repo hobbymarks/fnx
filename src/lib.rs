@@ -137,15 +137,15 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn new(origin: &str, target: &str) -> Self {
+    pub fn new(origin: &str, target: &str) -> Result<Self> {
         let hashed = hashed_name(target);
-        let encrypted = encrypted(origin, target).unwrap();
-        Self {
+        let encrypted = encrypted(origin, target)?;
+        Ok(Self {
             id: 0,
             hashed_current_name: hashed,
             encrypted_pre_name: encrypted,
             count: 1,
-        }
+        })
     }
 }
 
@@ -201,10 +201,14 @@ pub fn directories(directory: &Path, depth: usize, excludes: Vec<&Path>) -> Resu
 ///Create DirBase struct from abs_path
 fn dir_base(abs_path: &Path) -> Option<DirBase> {
     if let (Some(base), Some(dir_path)) = (abs_path.file_name(), abs_path.parent()) {
-        Some(DirBase {
-            dir: dir_path.to_str().unwrap().to_owned(),
-            base: base.to_str().unwrap().to_owned(),
-        })
+        if let (Some(dir), Some(base)) = (dir_path.to_str(), base.to_str()) {
+            Some(DirBase {
+                dir: dir.to_owned(),
+                base: base.to_owned(),
+            })
+        } else {
+            None
+        }
     } else {
         None
     }
@@ -249,9 +253,9 @@ fn is_hidden(path: &Path) -> bool {
 }
 
 ///Remove continuouse "word" in "source"
-fn remove_continuous(source: &str, word: &str) -> String {
-    let re = Regex::new(&format!(r"(?i){}{}+", word, word)).unwrap();
-    re.replace_all(source, word).to_string()
+fn remove_continuous(source: &str, word: &str) -> Result<String> {
+    let re = Regex::new(&format!(r"(?i){}{}+", word, word))?;
+    Ok(re.replace_all(source, word).to_string())
 }
 
 ///Remove prefix separator and suffix separator
@@ -291,12 +295,9 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
                         .to_str()
                         .unwrap()
                         .to_owned(),
-                    Path::new(&base_name)
-                        .extension()
-                        .and_then(OsStr::to_str)
-                        .unwrap_or(""),
+                    Path::new(&base_name).extension().and_then(OsStr::to_str),
                 ),
-                false => (Path::new(&base_name).to_str().unwrap().to_owned(), ""),
+                false => (Path::new(&base_name).to_str().unwrap().to_owned(), None),
             };
 
             //replace to sep words
@@ -334,15 +335,15 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
             }
 
             //remove continuous
-            f_stem = remove_continuous(&f_stem, &sep);
+            f_stem = remove_continuous(&f_stem, &sep)?;
 
             //remove prefix and suffix sep
             let rlt = remove_prefix_sep_suffix_sep(&f_stem, &sep).to_owned();
             f_stem = rlt;
 
-            base_name = match f_ext.is_empty() {
-                true => f_stem.to_owned(),
-                false => format!("{}.{}", f_stem, f_ext),
+            base_name = match f_ext {
+                Some(f_ext) => format!("{}.{}", f_stem, f_ext),
+                None => f_stem.to_owned(),
             };
             Path::new(&dir_base.dir).join(base_name.clone())
         }
@@ -351,7 +352,7 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
     //take effect
     if base_name != dir_base.base && in_place {
         fs::rename(s_path, t_path)?;
-        let rd = Record::new(&dir_base.clone().base, &base_name);
+        let rd = Record::new(&dir_base.clone().base, &base_name)?;
         insert_record(&conn, rd)?;
     }
 
@@ -383,8 +384,8 @@ pub fn fdn_fs_post(origins: Vec<PathBuf>, targets: Vec<String>, args: Args) -> R
                 let rlt = fdn_f(&d_b, tn.clone(), args.in_place)?;
 
                 let (o_r, e_r) = match args.align {
-                    true => fname_compare(&d_b.base, &rlt, "a"),
-                    false => fname_compare(&d_b.base, &rlt, ""),
+                    true => fname_compare(&d_b.base, &rlt, "a")?,
+                    false => fname_compare(&d_b.base, &rlt, "")?,
                 };
                 if !o_r.eq(&e_r) {
                     if args.in_place {
@@ -452,8 +453,8 @@ pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
                                 frc = None;
                             }
                             let (o_r, e_r) = match args.align {
-                                true => fname_compare(&dir_base.base, &rf_base, "a"),
-                                false => fname_compare(&dir_base.base, &rf_base, ""),
+                                true => fname_compare(&dir_base.base, &rf_base, "a")?,
+                                false => fname_compare(&dir_base.base, &rf_base, "")?,
                             };
                             if !o_r.eq(&e_r) {
                                 if args.in_place {
@@ -596,17 +597,17 @@ pub fn config_delete(word: &str) -> Result<()> {
 }
 
 ///compare file stem and file extension separately and return rich text
-fn fname_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
+fn fname_compare(origin: &str, edit: &str, mode: &str) -> Result<(String, String)> {
     let (o_stem, o_ext) = stem_ext(origin);
     let (e_stem, e_ext) = stem_ext(edit);
 
-    let (o_stem_cmp, e_stem_cmp) = s_compare(&o_stem, &e_stem, mode);
-    let (o_ext_cmp, e_ext_cmp) = s_compare(&o_ext, &e_ext, mode);
+    let (o_stem_cmp, e_stem_cmp) = s_compare(&o_stem, &e_stem, mode)?;
+    let (o_ext_cmp, e_ext_cmp) = s_compare(&o_ext, &e_ext, mode)?;
 
-    (
+    Ok((
         o_stem_cmp + if o_ext.is_empty() { "" } else { "." } + &o_ext_cmp,
         e_stem_cmp + if e_ext.is_empty() { "" } else { "." } + &e_ext_cmp,
-    )
+    ))
 }
 
 ///return file stem and file extension by file path
@@ -634,7 +635,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{remove_prefix_sep_suffix_sep, stem_ext};
+    use crate::{remove_continuous, remove_prefix_sep_suffix_sep, stem_ext};
 
     #[test]
     fn test_remove_xfix_sep() {
@@ -652,5 +653,13 @@ mod tests {
         let (s, e) = stem_ext(p);
         assert!(s.eq("stem"));
         assert!(e.eq("ext"));
+    }
+
+    #[test]
+    fn test_remove_continuous() {
+        let src = "A_B__C___D_.txt";
+        let sep = "_";
+        let tgt = "A_B_C_D_.txt";
+        assert_eq!(remove_continuous(src, sep).unwrap(), tgt);
     }
 }

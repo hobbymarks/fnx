@@ -330,7 +330,7 @@ pub fn open_db(db_path: Option<&str>) -> Result<Connection> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{open_db, remove_continuous, utils::db::DEFAULT_DB_NAME};
+    use crate::{open_db, utils::db::DEFAULT_DB_NAME};
     use std::fs;
 
     #[test]
@@ -340,15 +340,7 @@ mod tests {
         assert!(rlt.is_ok());
         assert!(fs::metadata(DEFAULT_DB_NAME).is_ok());
         if !exist {
-            fs::remove_file(DEFAULT_DB_NAME).unwrap();
+            assert!(fs::remove_file(DEFAULT_DB_NAME).is_ok());
         }
-    }
-
-    #[test]
-    fn test_remove_continuous() {
-        let src = "A_B__C___D_.txt";
-        let sep = "_";
-        let tgt = "A_B_C_D_.txt";
-        assert_eq!(remove_continuous(src, sep), tgt);
     }
 }

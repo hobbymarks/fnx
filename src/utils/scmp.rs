@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
 use ansi_term::Color;
+use anyhow::{Error, Result};
 use difference::{Changeset, Difference};
 use regex::Regex;
 use tracing::trace;
@@ -10,9 +11,9 @@ const SPACE_BOX: &str = "▯";
 const EMPTY_BOX: &str = "␣";
 const GRAY: Color = Color::RGB(128, 128, 128);
 
-fn noesc(s: &str) -> String {
-    let re = Regex::new(r"\x1B\[([0-9;]+)m").unwrap();
-    re.replace_all(s, "").to_string()
+fn noesc(s: &str) -> Result<String> {
+    let re = Regex::new(r"\x1B\[([0-9;]+)m")?;
+    Ok(re.replace_all(s, "").to_string())
 }
 
 fn trace_noesc(sar: &str, origin: &str, edit: &str) {
@@ -21,19 +22,19 @@ fn trace_noesc(sar: &str, origin: &str, edit: &str) {
     trace!("{}\n{:?}\n{:?}", sar, noesc_origin, noesc_edit);
 }
 
-pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
+pub fn s_compare(origin: &str, edit: &str, mode: &str) -> Result<(String, String)> {
     let changeset = Changeset::new(origin, edit, "");
 
     let mut c_origin = "".to_string();
     let mut c_edit = "".to_string();
 
-    changeset.diffs.iter().for_each(|diff| {
+    changeset.diffs.iter().try_for_each(|diff| {
         match diff {
             Difference::Same(s) => {
                 let s = s.replace(char::is_whitespace, SPACE_BOX);
 
-                let noesc_origin = noesc(&c_origin);
-                let noesc_edit = noesc(&c_edit);
+                let noesc_origin = noesc(&c_origin)?;
+                let noesc_edit = noesc(&c_edit)?;
                 trace!("Sam\n{:?}\n{:?}", noesc_origin, noesc_edit);
 
                 //alignment origin and edited length by fill with EMPTY_BOX
@@ -75,10 +76,12 @@ pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
                 trace_noesc("", &c_origin, &c_edit);
             }
         }
-    });
 
-    let noesc_origin = noesc(&c_origin);
-    let noesc_edit = noesc(&c_edit);
+        Ok::<(), Error>(())
+    })?;
+
+    let noesc_origin = noesc(&c_origin)?;
+    let noesc_edit = noesc(&c_edit)?;
     trace!("TailSam\n{:?}\n{:?}", noesc_origin, noesc_edit);
 
     //alignment origin and edited length by fill with EMPTY_BOX
@@ -98,7 +101,7 @@ pub fn s_compare(origin: &str, edit: &str, mode: &str) -> (String, String) {
         }
     }
 
-    (c_origin, c_edit)
+    Ok((c_origin, c_edit))
 }
 
 #[cfg(test)]
@@ -111,7 +114,7 @@ mod tests {
         let origin_a = "A\u{1b}[31m▯\u{1b}[0mB\u{1b}[31m▯\u{1b}[0mC";
         let edit = "A_B_C";
         let edit_a = "A\u{1b}[32m_\u{1b}[0mB\u{1b}[32m_\u{1b}[0mC";
-        let (o_r, e_r) = s_compare(origin, edit, "a");
+        let (o_r, e_r) = s_compare(origin, edit, "a").unwrap();
         assert_eq!(origin_a, o_r);
         assert_eq!(edit_a, e_r);
     }

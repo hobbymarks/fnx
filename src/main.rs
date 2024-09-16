@@ -84,12 +84,12 @@ fn main() -> Result<()> {
 
     let exs: Vec<_> = args.exclude_path.iter().map(Path::new).collect();
 
-    input_paths.iter().for_each(|f_path| {
+    input_paths.iter().try_for_each(|f_path| -> Result<()> {
         let args = args.clone();
 
         if args.filetype == "f" {
             let files = match f_path.is_dir() {
-                true => regular_files(f_path, args.max_depth, exs.clone()).unwrap(),
+                true => regular_files(f_path, args.max_depth, exs.clone())?,
                 false => vec![PathBuf::from(f_path)],
             };
 
@@ -100,7 +100,7 @@ fn main() -> Result<()> {
             }
         } else if args.filetype == "d" {
             let files = match f_path.is_dir() {
-                true => directories(f_path, args.max_depth, exs.clone()).unwrap(),
+                true => directories(f_path, args.max_depth, exs.clone())?,
                 false => panic!("input path not match filetype"),
             };
 
@@ -110,7 +110,9 @@ fn main() -> Result<()> {
                 let _ = fdn_fs_post(files, Vec::new(), args);
             }
         }
-    });
+
+        Ok(())
+    })?;
 
     Ok(())
 }
