@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{anyhow, Result};
 use directories::UserDirs;
@@ -260,7 +264,7 @@ pub fn open_db(db_path: Option<&str>) -> Result<Connection> {
     t_c_map.insert(String::from("records"), create_records_table);
 
     let db_path = match db_path {
-        Some(v) => PathBuf::from(v),
+        Some(v) => Path::new(v),
         None => {
             let db_dir = match UserDirs::new() {
                 Some(v) => {
@@ -276,7 +280,7 @@ pub fn open_db(db_path: Option<&str>) -> Result<Connection> {
                 }
                 None => PathBuf::from("."),
             };
-            db_dir.join(DEFAULT_DB_NAME)
+            &db_dir.join(DEFAULT_DB_NAME)
         }
     };
 
