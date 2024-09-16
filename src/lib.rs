@@ -287,18 +287,15 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
             Path::new(&dir_base.dir).join(tn)
         }
         None => {
-            let (mut f_stem, f_ext) = match s_path.is_file() {
+            let (f_stem, f_ext) = match s_path.is_file() {
                 true => (
-                    Path::new(&base_name)
-                        .file_stem()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_owned(),
+                    Path::new(&base_name).file_stem(),
                     Path::new(&base_name).extension().and_then(OsStr::to_str),
                 ),
-                false => (Path::new(&base_name).to_str().unwrap().to_owned(), None),
+                false => (Some(Path::new(&base_name).as_os_str()), None),
             };
+
+            let mut f_stem = os2string(f_stem)?;
 
             //replace to sep words
             let to_sep_words = retrieve_to_sep_words(&conn)?;
@@ -306,6 +303,7 @@ fn fdn_f(dir_base: &DirBase, target: Option<String>, in_place: bool) -> Result<S
                 .iter()
                 .map(|e| (e.value.clone(), sep.clone()))
                 .collect();
+
             let mut old_f_stem = f_stem.clone();
             loop {
                 replacements_map.iter().for_each(|(k, v)| {
@@ -476,6 +474,16 @@ pub fn fdn_rfs_post(files: Vec<PathBuf>, args: Args) -> Result<()> {
     Ok(())
 }
 
+fn os2string(input: Option<&OsStr>) -> Result<String> {
+    match input {
+        Some(os_str) => match os_str.to_str() {
+            Some(valid_str) => Ok(valid_str.to_string()),
+            None => Err(anyhow!("Invalid UTF-8 sequence")),
+        },
+        None => Err(anyhow!("Option is None")),
+    }
+}
+
 ///return unicode names of every character of the string and name separated by "," sign
 fn unames(s: &str) -> String {
     let ns = s
@@ -598,8 +606,8 @@ pub fn config_delete(word: &str) -> Result<()> {
 
 ///compare file stem and file extension separately and return rich text
 fn fname_compare(origin: &str, edit: &str, mode: &str) -> Result<(String, String)> {
-    let (o_stem, o_ext) = stem_ext(origin);
-    let (e_stem, e_ext) = stem_ext(edit);
+    let (o_stem, o_ext) = stem_ext(origin)?;
+    let (e_stem, e_ext) = stem_ext(edit)?;
 
     let (o_stem_cmp, e_stem_cmp) = s_compare(&o_stem, &e_stem, mode)?;
     let (o_ext_cmp, e_ext_cmp) = s_compare(&o_ext, &e_ext, mode)?;
@@ -611,26 +619,15 @@ fn fname_compare(origin: &str, edit: &str, mode: &str) -> Result<(String, String
 }
 
 ///return file stem and file extension by file path
-fn stem_ext<P>(path: P) -> (String, String)
+fn stem_ext<P>(path: P) -> Result<(String, String)>
 where
     P: AsRef<Path> + AsRef<OsStr>,
 {
     let p = Path::new(&path);
+    let stem = os2string(p.file_stem())?;
+    let ext = os2string(p.extension())?;
 
-    let stem = p
-        .file_stem()
-        .unwrap_or_default()
-        .to_str()
-        .unwrap()
-        .to_string();
-    let ext = p
-        .extension()
-        .unwrap_or_default()
-        .to_str()
-        .unwrap()
-        .to_string();
-
-    (stem, ext)
+    Ok((stem, ext))
 }
 
 #[cfg(test)]
@@ -650,7 +647,7 @@ mod tests {
     #[test]
     fn test_stem_ext() {
         let p = "stem.ext";
-        let (s, e) = stem_ext(p);
+        let (s, e) = stem_ext(p).unwrap();
         assert!(s.eq("stem"));
         assert!(e.eq("ext"));
     }
