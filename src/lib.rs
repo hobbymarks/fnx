@@ -486,13 +486,10 @@ fn os2string(input: Option<&OsStr>) -> Result<String> {
 
 ///return unicode names of every character of the string and name separated by "," sign
 fn unames(s: &str) -> String {
-    let ns = s
-        .chars()
+    s.chars()
         .filter_map(|c| unicode_names2::name(c).map(|n| n.to_string()))
         .collect::<Vec<_>>()
-        .join(",");
-
-    ns
+        .join(",")
 }
 
 ///list all separators stored in database via database connection
